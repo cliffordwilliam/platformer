@@ -67,8 +67,9 @@ func layout() -> void:
 ```
 
 - `biome` sets `Ground`'s and `GroundPieces`' `tile_set` to that biome's
-  `TileSet` (`level-tiles.md`), `Decorations`' `tile_set` to that biome's
-  decorations `TileSet` (see Decorations), and the `Background`'s picture
+  `TileSet` (`level-tiles.md`), `Decorations`' and
+  `GroundPieceDecorations`' `tile_set` to that biome's decorations
+  `TileSet` (see Decorations), and the `Background`'s picture
   (`background.md`).
 - `Level._ready()` calls `layout()`, adds the end floor, checks the
   layout, then builds everything (see Building).
@@ -301,8 +302,8 @@ whole level exists.
       `one-way-platform.md` and `ladder.md`)
    7. `Ground` (`TileMapLayer`)
    8. `Spikes` (`TileMapLayer`, see Spikes)
-   9. `Waterfalls`, then `GroundPieces` (`TileMapLayer`s, see
-      Decorations, Ground pieces)
+   9. `Waterfalls`, then `GroundPieces`, then `GroundPieceDecorations`
+      (`TileMapLayer`s, see Decorations, Ground pieces)
    10. `BlockItems` (`Node2D`): empty at the start; the coins and diamonds
        that come out of gift blocks, drawn behind every block
    11. `Blocks` (`Node2D`): the blocks, in list order
@@ -486,6 +487,23 @@ pixel platformer samples, `~/Downloads/kenney_pixel-platformer/SampleB.png`.)
   middle floor's columns). Pieces are drawn in floor order with
   `set_cell()`, so a later piece covers the earlier one and keeps its whole
   outline: it looks like a ledge in front of the other.
+- **Decorations on top:** each piece gets plain decorations like a floor
+  (see Placement above): every cell of its top row has a **20 %** chance
+  (`randf() < 0.2`) of one of the biome's decorations, picked with
+  `randi_range`, in the cell directly above. Plain decorations only: no
+  waterfalls and no big decorations. Like the floors, a piece whose top
+  row is 14 or more gets none, or 13 or more when `has_water` is on.
+  - They go in their own `TileMapLayer`, `GroundPieceDecorations`, right
+    after `GroundPieces`, using the biome's decorations `TileSet`. (The
+    plain `Decorations` layer is behind the ground, where these would be
+    hidden.)
+  - When a later piece is drawn, it first erases the earlier pieces'
+    decorations in every cell its rectangle covers
+    (`GroundPieceDecorations.erase_cell()`), so a decoration never floats
+    in front of a piece drawn over it.
+  - Over the lower floor's columns, the cell above a piece is that floor's
+    surface row, so a decoration there is drawn in front of the floor's
+    top tile, never above its surface line.
 
 ## Snapshot
 
@@ -665,6 +683,9 @@ may go anywhere.
 | A pair with a gap, or with a floor on row 14 | Never a piece |
 | A ground piece | Drawn in front of the ground and waterfalls, behind the water, blocks, enemies and the player; nothing collides with it (`collision_enabled` is false) |
 | Two overlapping pieces | The later one is drawn whole, outline included, over the earlier one |
+| A long ground piece | About 1 in 5 cells of its top row has a plain decoration above it, from the level's biome, drawn in front of the ground |
+| A later piece drawn over an earlier piece's decoration | That decoration is gone |
+| A piece whose top row is 14 (or 13 with water) | No decorations on it |
 | `has_water` off, a 3-column gap | A spike tile on row 13 of each of the 3 columns; nothing else in them |
 | Any spike | Spikes drawn from y 248 to 257: their base on the death line and the screen's bottom edge |
 | `has_water` on, a gap | No spikes: water on rows 13 and 14 |
