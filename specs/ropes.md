@@ -70,11 +70,16 @@ the cap, reaching all the way up to **row 0**, the top of the screen.
   4-cell rope, rows 0 to 8.
 
 **Supporting masses**: always two, one on the main mass's left edge and one
-on its right edge, built exactly like the tree's supporting canopies
-(`trees.md`, Building one tree): a random anchor row on that edge column,
-growing toward the farther end of the main mass, `randi_range(1, 3)` wide
+on its right edge, built like the tree's supporting canopies (`trees.md`,
+Building one tree): a random anchor row on that edge column, growing
+toward the farther end of the main mass, `randi_range(2, 3)` wide
 counting the anchor's column (growing outward), `randi_range(1, 3)` tall
-counting the anchor's row. So the mass gets steps on its sides.
+counting the anchor's row.
+- **Then stretched up to row 0:** its bottom row stays where that puts it,
+  and its top becomes row 0, so it hangs from the top of the screen like
+  the main mass. A supporting mass with its own top would look like a
+  ledge to land on. So the mass gets steps on its sides, every one
+  hanging from above.
 
 ## Drawing the ground mass
 
@@ -112,7 +117,7 @@ counting the anchor's row. So the mass gets steps on its sides.
 | Floor on row 7 or less | Never a rope |
 | Any rope | Base on the cell above a surface tile, cap on its top cell, bodies between; 4 to 6 cells in all |
 | Main mass | Bottom row directly above the cap, reaching row 0; 3 to 5 wide |
-| Supporting masses | One on each side, 1 to 3 wide and 1 to 3 tall, merged with the main mass under one outline |
+| Supporting masses | One on each side, 2 or 3 wide, reaching from row 0 down, merged with the main mass under one outline; no top edge anywhere below row 0 |
 | Top of the screen | No outline along row 0 over the mass |
 | Underside | About 1 in 5 cells has an upside-down plant hanging below it; never in the cap's cell |
 | Player jumps into the mass, walkers, anything | Passes through: `collision_enabled` is false |

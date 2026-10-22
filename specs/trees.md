@@ -110,10 +110,11 @@ canopy's left edge and one on its right edge. For each side:
 2. **Vertical direction:** toward the farther end of the main canopy. If the
    anchor is nearer the bottom, the canopy grows up; nearer the top, it
    grows down. Exactly in the middle: up or down, equally likely.
-3. **Width:** `randi_range(1, 3)`, **counting the anchor's column**, growing
+3. **Width:** `randi_range(2, 3)`, **counting the anchor's column**, growing
    outward (the left one grows left, the right one grows right). So it
-   always overlaps the main canopy's edge column: width 1 sits exactly on
-   it.
+   overlaps the main canopy's edge column and always sticks out 1 or 2
+   columns past it. (Never 1 wide: that would sit inside the edge column
+   and look wrong.)
 4. **Height:** `randi_range(1, 3)` rows, **counting the anchor's row**,
    growing in the chosen direction. So height 1 is the anchor row alone,
    and height 2 is the anchor row plus one more.
@@ -139,7 +140,7 @@ A tree may reach above the top of the screen. That is fine.
 |---|---|
 | Snow or desert level | No trees |
 | Grass level, long flat ground | Some trees, never two big decorations (trees, pipes or ropes) closer than 26 tiles |
-| Supporting canopy, width 1 | Exactly on the main canopy's edge column |
+| Supporting canopy | 2 or 3 wide, overlapping the main canopy's edge column and sticking out 1 or 2 columns past it; never 1 wide |
 | Any tree | Stump on the cell above a surface tile, 3 to 5 middle tiles, then the top |
 | A branch point | Its branch(es) in the same row, 1 or 2 tiles long, ending in a tip; right ones mirrored |
 | Main canopy | Bottom row on the trunk's top tile's row, covering it; 3 to 5 wide, 1 to 5 tall, outline unbroken |
