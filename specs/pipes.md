@@ -33,8 +33,9 @@ the tree branches (`trees.md`).
 - Only when `has_water` is on.
 - A pipe is a **big decoration** (`level-layout.md`, Decorations, Big
   decorations): one candidate in the decoration roll, shared with the
-  trees, with one shared cooldown of a screen width. In a grass level with
-  water, each big decoration is a tree or a pipe at random.
+  trees and ropes (`ropes.md`), with one shared cooldown of a screen width.
+  Where more than one kind is allowed on a tile, each big decoration is
+  one of them at random.
 - It is planted on a surface tile: its first leg is in that tile's column.
   No plain decoration goes on that tile.
 
@@ -67,8 +68,9 @@ behind high ground; that is fine.
 | Case | Expected |
 |---|---|
 | Level without water | No pipes |
-| Level with water, any biome, long flat ground | Some pipes, never two big decorations (pipes or trees) closer than 26 tiles |
-| Grass level with water | Big decorations are trees or pipes, each about half the time |
+| Level with water, any biome, long flat ground | Some pipes, never two big decorations (pipes, trees or ropes) closer than 26 tiles |
+| Grass level with water, floors on row 7 or less | Big decorations are trees or pipes, each about half the time |
+| Grass level with water, floors on row 8 or more | Big decorations are trees, pipes or ropes, each about a third of the time |
 | Pipe planted in column 10, `h` 3, right, `w` 4 | Legs in columns 10 and 13: vertical bodies on rows 0 and 1; row 2: mirrored elbow in 10, horizontal bodies in 11 and 12, elbow as drawn in 13 |
 | Pipe with `w` 2 | The two elbows side by side, no horizontal body |
 | Any pipe | Top of both legs on row 0; 2 to 6 rows tall, 2 to 6 columns wide |

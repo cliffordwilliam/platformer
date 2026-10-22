@@ -15,6 +15,7 @@ This file holds the rules every spec shares. Read it first.
 | `door.md` | Doors placed anywhere, like coins; touching one wins the level like the flag |
 | `background.md` | The still picture behind everything, one per biome, repeated sideways and scrolling at half speed |
 | `trees.md` | Randomly built background trees in grass levels |
+| `ropes.md` | Randomly built background ropes holding up hanging ground, in every biome |
 | `pipes.md` | Background pipes hanging from the top of the screen, in levels with water |
 | `one-way-platform.md` | One-way platforms: wooden planks and clouds in every biome, plus stones and mushrooms in the desert |
 | `ladder.md` | Ladders placed anywhere; the player climbs them by holding up |

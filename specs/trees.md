@@ -63,7 +63,8 @@ inner corners and the second fill):
 - Only when `biome` is `GRASS`.
 - A tree is a **big decoration** (`level-layout.md`, Decorations, Big
   decorations): planted by the same roll as the plain decorations, sharing
-  one candidate and one cooldown (one screen width) with the pipes. Only
+  one candidate and one cooldown (one screen width) with the pipes and
+  ropes (`ropes.md`). Only
   floors that get decorations can get a tree.
 - When a tree is planted, its stump goes in the cell directly above the
   surface tile, and no plain decoration goes there.
@@ -135,10 +136,10 @@ A tree may reach above the top of the screen. That is fine.
 | Case | Expected |
 |---|---|
 | Snow or desert level | No trees |
-| Grass level, long flat ground | Some trees, never two big decorations (trees or pipes) closer than 26 tiles |
+| Grass level, long flat ground | Some trees, never two big decorations (trees, pipes or ropes) closer than 26 tiles |
 | Supporting canopy, width 1 | Exactly on the main canopy's edge column |
 | Any tree | Stump on the cell above a surface tile, 3 to 5 middle tiles, then the top |
 | A branch point | Its branch(es) in the same row, 1 or 2 tiles long, ending in a tip; right ones mirrored |
 | Main canopy | Bottom row directly above the top tile, 3 to 5 wide, 1 to 5 tall, outline unbroken |
 | Supporting canopies | One on each side, drawn in front of the main canopy with their own outlines |
-| Trees | Drawn behind the plain decorations and everything else, in front of the background |
+| Trees | Drawn behind the ropes, the plain decorations and everything else, in front of the background |

@@ -293,8 +293,9 @@ whole level exists.
    top, like layers in a drawing program, so no `z_index` is needed:
    1. `Background` (`Parallax2D`, see `background.md`), drawn behind
       everything
-   2. `Trees`, `TreeCanopies`, `TreeCanopiesFront` (`TileMapLayer`s, see
-      `trees.md`), drawn behind everything but the background
+   2. `Trees`, `TreeCanopies`, `TreeCanopiesFront`, then `RopeCeilings`,
+      `RopeCeilingDecorations`, `Ropes` (`TileMapLayer`s, see `trees.md`
+      and `ropes.md`), drawn behind everything but the background
    3. `Pipes` (`TileMapLayer`, see `pipes.md`)
    4. `Decorations` (`TileMapLayer`)
    5. `Flag` (see `flag.md`)
@@ -326,7 +327,8 @@ whole level exists.
    2. the one-way platforms (`one-way-platform.md`) and the ladders
       (`ladder.md`)
    3. the decorations and waterfalls (see Decorations), the big
-      decorations: trees (`trees.md`) and pipes (`pipes.md`), and the
+      decorations: trees (`trees.md`), pipes (`pipes.md`) and ropes
+      (`ropes.md`), and the
       ground pieces (see Decorations, Ground pieces)
    4. if `has_water`, the water (see Water); if not, the spikes (see Spikes)
 4. Sets the starting positions (`camera.md`, Starting position).
@@ -425,21 +427,23 @@ player and enemies never touch them.
 
 ### Big decorations
 
-Trees (`trees.md`) and pipes (`pipes.md`) are big decorations. They share
-one candidate in the roll above and one cooldown.
+Trees (`trees.md`), pipes (`pipes.md`) and ropes (`ropes.md`) are big
+decorations. They share one candidate in the roll above and one cooldown.
 
-- **Which kinds the level allows:** a tree when `biome` is `GRASS`; a pipe
-  when `has_water` is on. A level that allows neither has no big-decoration
-  candidate.
+- **Which kinds are allowed on a surface tile:** a tree when `biome` is
+  `GRASS`; a pipe when `has_water` is on; a rope in every biome, but only
+  on a floor whose row is 8 or more. When none is allowed on that tile,
+  there is no big-decoration candidate there.
 - **Cooldown:** the build remembers the x of the last big decoration it
-  planted, tree or pipe. The candidate is only there when the current
+  planted, of any kind. The candidate is only there when the current
   surface tile is at least `Screen.width` (459 px, one screen width) to the
   right of it, measured between the two tiles' left edges (that is, 26
   tiles or more apart). Before the first one there is no cooldown.
-- **When the roll picks it**, its kind is `pick_random()` from the kinds the
-  level allows, each equally likely: in a grass level with water, each big
-  decoration is a tree or a pipe at random. It is planted on that surface
-  tile, and no plain decoration goes there.
+- **When the roll picks it**, its kind is `pick_random()` from the kinds
+  allowed on that tile, each equally likely: on a floor on row 8 or more in
+  a grass level with water, each big decoration is a tree, a pipe or a rope
+  at random. It is planted on that surface tile, and no plain decoration
+  goes there.
 
 ### Ground pieces
 

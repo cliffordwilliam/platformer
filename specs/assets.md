@@ -43,9 +43,10 @@ origins are measured from the top-left corner of the image, in pixels.
 | `res://art/backgrounds/sprite_*.png` | 96 × 257 | none | none | 0, 0 (top-left) |
 | `res://art/door/sprite_*.png` | 18 × 36 | x 0, y 13 | 18 × 23 | 0, 18 (top-left of the bottom tile) |
 
-Decorations, solids, water, spikes, trees, pipes, one-way platforms and ladders are tiles, not sprites: the `TileSet`
+Decorations, solids, water, spikes, trees, ropes, pipes, one-way platforms and ladders are tiles, not sprites: the `TileSet`
 places them and gives the solids and platforms their collision (`level-tiles.md`,
-`level-layout.md`, `trees.md`, `pipes.md`, `one-way-platform.md`).
+`level-layout.md`, `trees.md`, `ropes.md`, `pipes.md`, `one-way-platform.md`,
+`ladder.md`).
 
 ## Collision boxes
 
