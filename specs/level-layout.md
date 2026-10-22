@@ -143,10 +143,18 @@ silent mistake.
 
 Right after `layout()` and the end floor, before anything is built, the
 level root checks the values the level script wrote, like validating input
-before doing any work. Each check is an `assert` whose message names the
-field and the bad value, so a mistake stops the build at once. The checks
-read only the written fields (`floors`, `has_water`, `player_cell`, the
-lists), never built nodes or physics.
+before doing any work. Each check's message names the field and the bad
+value, so a mistake stops the build at once. The checks read only the
+written fields (`floors`, `has_water`, `player_cell`, the lists), never
+built nodes or physics.
+
+- **One function does all the checks**, `_layout_error() -> String`: it
+  returns the first problem's message, or `""` when there is none.
+  `_ready` asserts on it right there:
+  `var error := _layout_error()` then `assert(error == "", error)`. An
+  `assert` inside the helper would stop only the helper, and `_ready`
+  would go on to build the bad level (`overview.md`, Running from the
+  command line).
 
 Outside the editor (a headless run, a snapshot), a failed `assert` only
 prints `SCRIPT ERROR: Assertion failed: <message>` to the output and stops
@@ -254,7 +262,8 @@ The flag is the one exception: it is placed automatically (`flag.md`).
 
 For every item in a list, the level root:
 
-1. instantiates the kind's scene (`PackedScene.instantiate()`)
+1. instantiates the kind's scene (`load(path).instantiate()`: `load()`
+   when building, never `preload`, which would be a cycle, `overview.md`)
 2. sets its `position` with `cell_to_position`
 3. calls its `setup(...)` with everything it needs (below)
 4. adds it to the kind's layer node with `add_child()`
@@ -334,7 +343,8 @@ whole level exists.
    3. the decorations and waterfalls (see Decorations), the big
       decorations: trees (`trees.md`), pipes (`pipes.md`) and ropes
       (`ropes.md`), and the
-      ground pieces (see Decorations, Ground pieces)
+      ground pieces (see Decorations, Ground pieces). Not in a snapshot
+      (`Level.show_guides` on): see Snapshot.
    4. if `has_water`, the water (see Water); if not, the spikes (see Spikes)
 4. Sets the starting positions (`camera.md`, Starting position).
 5. Runs the jump check (see Jump check).
@@ -364,7 +374,11 @@ Purely visual, like the decorations, and the same in every biome.
 - The animated tiles are (0, 0), (2, 0), (2, 1) and (2, 2), each with 2
   frames laid out left to right (animation columns 0), each frame lasting
   0.1333 s (7.5 frames per second, the same as the enemies' animations),
-  default animation mode, so every copy of a tile moves in step.
+  default animation mode, so every copy of a tile moves in step. In code,
+  on the atlas source: `set_tile_animation_columns(coords, 0)`,
+  `set_tile_animation_frames_count(coords, 2)` and
+  `set_tile_animation_frame_duration(coords, frame, 0.1333)` for each
+  frame.
 - Whether the water and waterfalls keep animating while the game is paused
   (the injury freeze, death, the win) does not matter: either is fine.
   Nothing needs to be done about it.
@@ -523,6 +537,19 @@ no screenshot code:
 godot --path . --write-movie snapshots/level_1_page_0.png --quit-after 2 res://tools/snapshot.tscn -- 1 0
 ```
 
+- **The `snapshots/` folder must exist first** (`mkdir -p snapshots`).
+  Movie Maker does not create it: without it, it prints
+  `Condition "d.is_null()" is true`, writes nothing, and still exits with
+  code 0 (tested on 4.7.2).
+- **No random art in a snapshot:** while `Level.show_guides` is on, the
+  build skips the plain decorations, the waterfalls, the big decorations
+  (trees, pipes, ropes) and the ground pieces with their decorations.
+  They are only random pictures that nothing touches, and each snapshot
+  is its own run, so they would come out differently on every page and
+  every snapshot and get in the way of reading the level. Everything else
+  is built as usual: the ground, water, spikes, platforms, ladders and
+  every placed thing. (The platforms' looks and the doors' variants are
+  still picked at random, so those can differ between pages.)
 - `res://tools/snapshot.tscn` has one script. It reads the level number and
   the page from `OS.get_cmdline_user_args()` (everything after `--`).
 - It sets `Level.show_guides = true` (a `static var` on `Level`, false
@@ -711,6 +738,8 @@ may go anywhere.
 | Leaper rising from water | In front of waterfalls, behind the water |
 | Any `floors` | `level_end_x` = sum of widths × `Grid.TILE` |
 | Snapshot | Numbered grid and guides shown |
+| Snapshot | No plain decorations, waterfalls, trees, pipes, ropes or ground pieces; ground, water, spikes, platforms, ladders and placed things as usual |
+| Snapshot with no `snapshots/` folder | Nothing written; create the folder first |
 | Normal run | No grid, no guides |
 | Snapshot page 1 | Camera's left edge at x = 450 |
 | Snapshot page past the level end | Camera's right edge at `level_end_x` |

@@ -143,7 +143,7 @@ Stomping works while the player is invincible too.
 
 | Case | Expected |
 |---|---|
-| Player falls onto a walker | Walker is switched off and hidden, its death scene appears in its place; player `velocity.y == -227.37`, state Bounce |
+| Player falls onto a walker | Walker is switched off and hidden, its death scene appears in its place; player `velocity.y` within 0.001 of -227.37 (`overview.md`, Tests), state Bounce |
 | Player walks into a walker on the floor | Player is hurt (health goes down by 1) |
 | Player rises into a walker from below | Player is hurt |
 | Player stays overlapping a walker until invincibility ends | Player is hurt again |

@@ -55,12 +55,73 @@ This file holds the rules every spec shares. Read it first.
     script that fails to parse just doesn't load, and a failed `assert`
     stops only the function it is in. After every run, read the output for
     `SCRIPT ERROR` and `ERROR` lines.
+  - Because an `assert` stops only its own function, a check that must
+    stop its caller is not an `assert` inside a helper: the helper returns
+    a message (`""` when all is well) and the caller asserts on it
+    (`level-layout.md`, Checking the layout).
+  - A type inferred from a Variant is an **error**, not a warning, by
+    default: `var plank := [1, 2].pick_random()` stops the script from
+    loading ("The variable type is being inferred from a Variant value").
+    Give such variables their type: `var plank: int = [1, 2].pick_random()`.
+  - **No `preload` cycles:** a script that preloads a scene whose scripts
+    refer back to it gets an empty scene ("Failed to instantiate scene
+    state ... node count is 0"). `Level` preloading the player scene, whose
+    script uses `Level`, does exactly this. So the level root loads the
+    scenes it builds with `load()` when it builds them, never with
+    `preload` (`level-layout.md`, Building a thing).
   - With `--headless`, a `VisibleOnScreenEnabler2D` never switches anything
     on, even in the middle of the screen. So walkers, flyers, leapers, the
     crusher, the bar, the diamond and springs stay switched off, and a test
     that needs them runs with a window. Movie Maker also crashes with
     `--headless`, so snapshots need a window too (`level-layout.md`,
     Snapshot).
+- **`.gitignore`** at the project root, holding `.godot/` (Godot's own
+  cache, rebuilt by `--import`) and `snapshots/` (`level-layout.md`,
+  Snapshot). Godot's project manager writes one when it creates a project
+  in the editor, but a project set up from the command line gets none
+  (tested on 4.7.2), and `snapshots/` is this project's own.
+
+## Tests
+
+The acceptance tests in every spec are run against the real game, with
+Godot's own updates, not against copies of the code.
+
+- They live in `res://tests/`. One runner scene,
+  `res://tests/run_tests.tscn`, runs every `test_` function of its
+  script, one after another, and prints one line per check.
+- Run: `godot --path . res://tests/run_tests.tscn`, **with a window**
+  (enemies, the diamond and springs never switch on with `--headless`,
+  see above). Anything after `--` picks only the tests whose name holds
+  it: `godot --path . res://tests/run_tests.tscn -- ladder`.
+- At the end the runner calls `get_tree().quit(1)` if any check failed,
+  `quit(0)` if none did, so the exit code tells (unlike errors, see
+  above).
+- **Each test builds a small level in code:** `res://tests/test_level.gd`
+  `extends Level`, and its `layout()` calls a `static var configure:
+  Callable` that the test sets first, so each test writes only the fields
+  it needs. The test adds the level, plays it by holding keys with the
+  built-in `Input.action_press()` and `Input.action_release()`, and waits
+  whole updates.
+- **Waiting one update:** the runner's `process_physics_priority` is high
+  (1000), so its `_physics_process` runs after every other node's; it
+  emits a signal there, and a test awaits that signal to wait one update,
+  with everything else's update for it already done.
+- **Decimal numbers are compared with a tolerance:** a check passes when
+  `absf(actual - expected) <= 0.001`, unless its row gives its own (for
+  example "within 1 px"). `Vector2` holds 32-bit numbers, so a value that
+  has no exact binary form never equals the written number: a
+  `velocity.y` set to `-227.37` reads back as `-227.3699951` (tested). In
+  the specs' tables, `==` with a decimal number means within 0.001.
+- **Two traps (tested on 4.7.2):**
+  - The runner keeps going while the game is paused
+    (`PROCESS_MODE_ALWAYS`), and a level added under it would inherit
+    that and ignore the pause. Each test level is set to
+    `PROCESS_MODE_PAUSABLE` before it is added, so it pauses like a level
+    that is the scene root.
+  - A `static var` still holding a lambda when the game quits crashes
+    Godot on the way out ("double free or corruption", exit code 134).
+    The runner sets `configure` back to an empty `Callable()` before it
+    quits.
 
 ## Shared rules
 

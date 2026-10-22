@@ -104,7 +104,7 @@ everything and off the screen.
 
 | Case | Expected |
 |---|---|
-| Switched on | Leaps on its first update: `velocity.y == -421.86` |
+| Switched on | Leaps on its first update: `velocity.y` within 0.001 of -421.86 (`overview.md`, Tests) |
 | Leap | Top of the leap 204.39 px above the start point (within 1 px) |
 | Leap | Back at the start point after exactly 132 updates, `velocity.y == 0` |
 | Rising | `flip_v` is false |

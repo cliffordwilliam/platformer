@@ -16,6 +16,15 @@ collision shape to match its sprite):
 Placed from the level script's `walkers` list. Each `WalkerSpawn`
 (`level-layout.md`) gives the walker's cell and variant.
 
+- **One scene per variant:** `res://enemies/walker_a.tscn`,
+  `walker_b.tscn` and `walker_c.tscn`, each with its own sprite frames,
+  box, origin and enabler `rect` (`assets.md`), all three using the one
+  `Walker` script. The level picks the scene by the spawn's variant.
+- The walker's `setup(level, spawn)` gets the `WalkerSpawn` too, and
+  takes from its variant the flattened sprite
+  (`res://art/walker_*/sprite_3.png`) it hands to its flattened and bonked
+  scenes (see Stomped).
+
 Each walker is a `CharacterBody2D` moved with `move_and_slide()`, so the
 same "no slopes" rule from `overview.md` applies.
 

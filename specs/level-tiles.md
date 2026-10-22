@@ -32,16 +32,31 @@ first.
 
 ## TileSet setup
 
-- One `TileSet` resource per biome, with `tile_size` `Grid.TILE` × `Grid.TILE` and one atlas
-  source: Texture Region Size 18 × 18, Separation 0, Margins 0.
-- **Build the snow `TileSet` once** (atlas, collision, terrains, peering
-  bits). Then make the grass and desert ones by **duplicating it and
-  swapping only the atlas texture**. Collision and peering bits belong to
-  the tiles, so they come along unchanged; nothing is entered twice.
+- **Every `TileSet` in the game is built in code**, not in the editor
+  (the build has no editor): `res://tiles/tiles.gd` is
+  `@abstract class_name Tiles`, with one static function per `TileSet`
+  (`Tiles.ground(biome)`, `Tiles.decorations(biome)`, `Tiles.water()`,
+  `Tiles.platforms()` and so on). Each builds its `TileSet` the first time
+  it is asked for and keeps it in a `static var` dictionary, so every
+  layer that asks gets the same one.
+- One `TileSet` per biome, with `tile_size` `Grid.TILE` × `Grid.TILE` and
+  one `TileSetAtlasSource`: `texture_region_size` `Grid.TILE` ×
+  `Grid.TILE`, no separation, no margins (the defaults).
+- **One function builds all three biomes**, given the biome's sheet: the
+  collision, terrains and peering bits are written once, in that function,
+  and only the texture differs.
 - A level's `TileMapLayer` uses the `TileSet` of that level's biome.
-- **Collision:** one physics layer. Every tile gets a full `Grid.TILE` × `Grid.TILE` square
-  collision polygon (the `F` shortcut in the TileSet editor). Solid from
-  every side: no one-way collision.
+- **Collision:** one physics layer (`add_physics_layer()`). Every tile gets
+  a full `Grid.TILE` × `Grid.TILE` square collision polygon
+  (`TileData.add_collision_polygon(0)`, then
+  `set_collision_polygon_points(0, 0, ...)` with the four corners at
+  ±`Grid.HALF_TILE` around the tile's centre, the polygon's origin). Solid
+  from every side: no one-way collision. (One-way tiles, the platforms and
+  the ladder caps, also call `set_collision_polygon_one_way(0, 0, true)`.)
+- **Building tiles in code:** a tile is made with `create_tile(coords)` on
+  the atlas source, after the source has been added to the `TileSet`
+  (`add_source()`), so its `TileData` knows the `TileSet`'s physics layers
+  and terrains. Only the listed tiles are made: empty spots stay empty.
 - The physics layer has `collision_layer` = **`level`**, the layer the
   player, walkers and crusher collide with, and `collision_mask` = none:
   the tiles are collided with and scan nothing themselves.
@@ -55,6 +70,12 @@ first.
 - Each tile's peering bits come from the table below. "Solid" means that
   neighbour is set to `ground`; every neighbour not listed is set to -1
   (empty).
+- In code: `add_terrain_set()`, `set_terrain_set_mode(0, ...)`,
+  `add_terrain(0)` and `set_terrain_name(0, 0, "ground")` on the
+  `TileSet`; then for each tile `terrain_set = 0` and `terrain = 0` on its
+  `TileData`, and `set_terrain_peering_bit()` for each of the 8
+  neighbours (`TileSet.CELL_NEIGHBOR_RIGHT_SIDE`,
+  `CELL_NEIGHBOR_BOTTOM_RIGHT_CORNER` and so on).
 
 | Tile | Solid neighbours |
 |---|---|
