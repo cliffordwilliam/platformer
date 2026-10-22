@@ -1,0 +1,190 @@
+# Overview
+
+A 2D platformer made in Godot. This folder holds one spec per mechanic.
+This file holds the rules every spec shares. Read it first.
+
+## Specs
+
+| File | Covers |
+|---|---|
+| `overview.md` | Shared rules (this file) |
+| `assets.md` | Art files, collision boxes and origins |
+| `level-tiles.md` | Solid ground tiles, autotiling and their collision |
+| `level-layout.md` | Level scripts, floors, placing things, water, spikes, decorations, level end, the jump check and the snapshot |
+| `flag.md` | The goal flag and winning a level |
+| `door.md` | Doors placed anywhere, like coins; touching one wins the level like the flag |
+| `background.md` | The still picture behind everything, one per biome, repeated sideways and scrolling at half speed |
+| `trees.md` | Randomly built background trees in grass levels |
+| `pipes.md` | Background pipes hanging from the top of the screen, in levels with water |
+| `one-way-platform.md` | One-way platforms: wooden planks and clouds in every biome, plus stones and mushrooms in the desert |
+| `ladder.md` | Ladders placed anywhere; the player climbs them by holding up |
+| `breakable-block.md` | Blocks the player breaks from below, killing walkers on top |
+| `gift-block.md` | Blocks that hop and release a coin or a diamond when hit from below |
+| `coins.md` | Coins placed in the level, collected by touching |
+| `diamond.md` | Pickup from a gift block that walks and heals 1 health |
+| `spring.md` | Springs that launch the player high on touch |
+| `hud.md` | The health heart fixed to the screen |
+| `controls.md` | Keys and how input is read |
+| `player-movement.md` | Walking, jumping, gravity, collisions and player states |
+| `player-animation.md` | Which sprite shows in each state, walk animation speed |
+| `player-damage.md` | Health, injury freeze and invincibility, death |
+| `player-contact.md` | Everything the player touches, in one fixed order: blocks over its head, pickups, enemies (stomp or hurt), springs |
+| `camera.md` | Right-only camera, level end, keeping the player on screen |
+| `enemy-walker.md` | Enemies that walk back and forth, turn at walls and fall off ledges |
+| `enemy-flyer.md` | Enemies that bob up and down in the air |
+| `enemy-leaper.md` | Enemies that leap straight up and fall back, again and again |
+| `enemy-crusher.md` | An enemy that drops on the player and rises back; cannot be stomped |
+| `enemy-bar.md` | A line of sprites spinning around its centre; cannot be stomped |
+| `squash.md` | Squash and stretch on the player, walkers, crusher, diamond and spring |
+
+## Engine
+
+- Godot **4.7.2**, the official Linux binary from godotengine.org (not the
+  Arch package), pinned so every build is reproducible: the standard build
+  (not .NET), `Godot_v4.7.2-stable_linux.x86_64.zip`, SHA-512 (from the
+  release's `SHA512-SUMS.txt`):
+  `9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65`.
+- Scripts are GDScript.
+- **Running from the command line** (all tested on 4.7.2):
+  - After adding or renaming a `class_name` script, run
+    `godot --headless --path . --import` once before the next run. Until
+    then Godot does not know the new name ("Identifier ... not declared in
+    the current scope"). The editor does this by itself.
+  - Errors never stop a run or change its exit code, which is always 0: a
+    script that fails to parse just doesn't load, and a failed `assert`
+    stops only the function it is in. After every run, read the output for
+    `SCRIPT ERROR` and `ERROR` lines.
+  - With `--headless`, a `VisibleOnScreenEnabler2D` never switches anything
+    on, even in the middle of the screen. So walkers, flyers, leapers, the
+    crusher, the bar, the diamond and springs stay switched off, and a test
+    that needs them runs with a window. Movie Maker also crashes with
+    `--headless`, so snapshots need a window too (`level-layout.md`,
+    Snapshot).
+
+## Shared rules
+
+- The game updates **60 times per second** with a fixed time step. All
+  gameplay logic runs in `_physics_process`.
+- The length of one update is `1/60` of a second, called `delta` below.
+- **Timers and tweens count in game updates:** every `Timer` node sets
+  `process_callback = TIMER_PROCESS_PHYSICS`, every
+  `get_tree().create_timer()` passes `process_in_physics = true`, and every
+  `Tween` calls `set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)`. (A tween
+  steps on drawn frames by default, and some tweens end in gameplay, such
+  as the diamond coming out when a gift block's hop ends.)
+- Positions are in pixels. Speeds are in pixels per second (px/s).
+  Accelerations are in pixels per second per second (px/s²).
+- The y axis points down. A negative vertical speed means moving up.
+- The screen is **459 px wide and 257 px tall**. These two numbers are set
+  once, in the project settings `display/window/size/viewport_width` and
+  `display/window/size/viewport_height`, and nowhere else. (Project
+  settings, not the live viewport size, so every script reads the same two
+  numbers.)
+- **Screen size in code:** `res://screen.gd` is `@abstract class_name Screen`.
+  It reads the two settings once, with the built-in
+  `ProjectSettings.get_setting(...)`, into `static var`s (not `const`s: a
+  `const` can't call a function):
+  - `width: int` (459) and `height: int` (257)
+  - `half_width: float = width / 2.0` (229.5) and
+    `half_height: float = height / 2.0` (128.5)
+
+  Every other script and spec uses `Screen.width`, `Screen.height`,
+  `Screen.half_width` and `Screen.half_height`, and never divides the size
+  by 2 itself: both numbers are odd, and in GDScript an `int` divided by an
+  `int` drops the fraction (459 / 2 is 229, not 229.5).
+- The art looks pixelated, but the game is **not** rendered as pixel art:
+  sprites will be squashed, stretched and tweened later, which needs smooth
+  scaling. So:
+  - `display/window/stretch/mode = "canvas_items"`: the game is drawn at
+    the window's real resolution, not at 459 × 257 and then blown up. At a
+    459 × 257 window it is drawn one to one.
+  - `display/window/stretch/aspect = "keep"`: the 459 × 257 shape is always
+    kept, with bars around it if the window is a different shape. The
+    player never sees more of the level than 459 × 257.
+  - Textures use nearest-neighbour filtering (project setting
+    `rendering/textures/canvas_textures/default_texture_filter`), so the
+    art stays sharp, not blurry, when drawn bigger. `canvas_items` still
+    keeps squash and stretch smooth.
+  - The window opens at **1377 × 771**
+    (`display/window/size/window_width_override` and
+    `window_height_override`): exactly 3 × 459 by 3 × 257, so every art
+    pixel is the same size, with no bars. If the player resizes the window,
+    `"keep"` adds bars where the shapes differ.
+- The camera only scrolls **right**, never back left. Its top edge is always
+  at y = 0 and its bottom edge at y = `Screen.height`. See `camera.md`.
+- Nothing is freed during a level. Things that are done (a dead player,
+  enemies off screen) are switched off with `process_mode`, not
+  `queue_free()`.
+- **Never switch a collision object off inside one of its own physics
+  signals** (`body_entered` and the like): Godot reports "Disabling a
+  CollisionObject node during a physics callback is not allowed". Use
+  `set_deferred("process_mode", PROCESS_MODE_DISABLED)` there instead.
+  Switching off from a `_physics_process` (a stomp, a block hit, a pickup)
+  is fine. Nothing in this game switches off inside a signal: the player
+  checks all contact itself (`player-contact.md`).
+- The level has **no slopes**. Every floor, wall and ceiling is flat and
+  either horizontal or vertical.
+- Keep to Godot's built-in features (for example `move_toward`,
+  `move_and_slide`, `is_on_floor`, `flip_h`) instead of writing custom
+  versions of them.
+- **Tile size:** a tile is **18 × 18 px**. This is the one place that
+  number is written down. `res://grid.gd` is `@abstract class_name Grid`
+  with `const TILE := 18` and `const HALF_TILE := 9`; code uses these for
+  every tile calculation and never writes 18 or 9 for it, and the other
+  specs write the tile as `Grid.TILE` or `Grid.HALF_TILE` too. Plain pixel
+  numbers in the specs describe the art instead: image sizes and positions
+  inside an image.
+- **No groups:** nothing uses `add_to_group`. Things find each other
+  through the level root they get in `setup()` (`level.player`,
+  `level.camera`, `level.walker_layer`), and check what something is with `is` (for
+  example `collider is Block`).
+- No `@tool` and no `@export` anywhere. Each level is plain text in its own
+  script, built when the game runs, and checked with a snapshot
+  (`level-layout.md`).
+- There is no pause button or pause screen. The game only pauses itself:
+  for the injury freeze and death (`player-damage.md`) and on winning
+  (`flag.md`).
+- **Physics layers** (named in Project Settings > Layer Names > 2D Physics):
+
+  | Layer | Name | On it |
+  |---|---|---|
+  | 1 | `level` | The solid tiles (`level-tiles.md`), the blocks, the one-way platforms and the ladder tops |
+  | 2 | `walkers` | Walkers |
+  | 3 | `enemies` | Every other enemy: crusher, flyer, leaper, bar |
+  | 4 | `pickups` | Coins and the diamond's pickup area |
+  | 5 | `springs` | Springs |
+  | 6 | `doors` | Doors |
+
+  The player is on **no** layer. It is the only thing that looks for the
+  others (its contact check, `player-contact.md`); nothing ever looks for
+  the player, so it needs no layer to be found on.
+
+  | Node | `collision_layer` | `collision_mask` |
+  |---|---|---|
+  | Player body | none | `level` |
+  | Player contact `Area2D` | none | `walkers`, `enemies`, `pickups`, `springs`, `doors` |
+  | Walker | `walkers` | `level`, `walkers` |
+  | Crusher | `enemies` | `level` |
+  | Flyer, leaper, bar (`Area2D`) | `enemies` | none |
+  | Breakable and gift blocks (`StaticBody2D`) | `level` | none |
+  | Ground tiles (the `TileSet`'s physics layer) | `level` | none |
+  | One-way platforms (the platform `TileSet`'s physics layer) | `level` | none |
+  | Ladder tops (the ladder `TileSet`'s physics layer) | `level` | none |
+  | Coins (`Area2D`) | `pickups` | none |
+  | Diamond body (`CharacterBody2D`) | none | `level` |
+  | Diamond pickup (`Area2D`) | `pickups` | none |
+  | Springs (`CharacterBody2D`) | `springs` | `level`, `springs` |
+  | Doors (`Area2D`) | `doors` | none |
+  | Death and flattened scenes | none | none |
+
+  Every collision object sets **both** `collision_layer` and
+  `collision_mask` to its row here. Godot's defaults (layer 1 and mask 1,
+  that is `level`) are never left as they are: a block left at the default
+  would scan `level`, and an `Area2D` would watch the ground every update
+  for nothing.
+
+  Walkers get their own layer so they can bump into each other (turning
+  around) without also bumping into the crusher. Springs do the same on
+  their own layer, so they stack on each other and nothing else.
+- No sound yet. Sound comes in a later spec; do not add any before then.
+- Do not add mechanics a spec does not describe.
