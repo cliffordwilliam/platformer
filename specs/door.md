@@ -16,7 +16,7 @@ win.
 - Shown with a `Sprite2D`, no animation.
 - **Origin (0, 18)**: the top-left corner of the image's bottom tile
   (`centered = false`, `offset = Vector2(0, -18)`, `assets.md`). So a door is
-  placed exactly like a coin, with `cell_to_position(cell, top-left)`: its
+  placed exactly like a coin, with `cell_to_position(cell, Origin.TOP_LEFT)`: its
   bottom tile fills the cell, and its top reaches into the cell above.
 - Collision box **18 × 23 at x 0, y 13** in the image: the whole drawn door.
 

@@ -45,6 +45,10 @@ to the builder.
 | `platforms` | `Array[PlatformSpawn]` | One-way platforms; each gets a random look from its biome's (`one-way-platform.md`) |
 | `ladders` | `Array[LadderSpawn]` | Ladders (`ladder.md`) |
 
+A field the level script doesn't set keeps its type's default: an empty
+list, `has_water` false, `player_cell` (0, 0), and `biome` `SNOW` (the
+enum's first value).
+
 Example:
 
 ```gdscript
@@ -66,11 +70,11 @@ func layout() -> void:
 	bars = [BarSpawn.new(Vector2i(16, 5), 2, 0.0, true)]
 ```
 
-- `biome` sets `Ground`'s and `GroundPieces`' `tile_set` to that biome's
-  `TileSet` (`level-tiles.md`), `Decorations`' and
-  `GroundPieceDecorations`' `tile_set` to that biome's decorations
-  `TileSet` (see Decorations), and the `Background`'s picture
-  (`background.md`).
+- `biome` sets `Ground`'s, `GroundPieces`' and `RopeCeilings`' `tile_set`
+  to that biome's `TileSet` (`level-tiles.md`), `Decorations`',
+  `GroundPieceDecorations`' and `RopeCeilingDecorations`' `tile_set` to
+  that biome's decorations `TileSet` (see Decorations), and the
+  `Background`'s picture (`background.md`).
 - `Level._ready()` calls `layout()`, adds the end floor, checks the
   layout, then builds everything (see Building).
 
@@ -177,7 +181,7 @@ exports, so these checks only run in debug builds.)
   last column).
 - **`flyers`:** the flyer's whole sprite is on screen at both ends of its
   path (a `bob_distance` of 0 is allowed: it hovers, `enemy-flyer.md`):
-  for the start `y = cell_to_position(cell, centre).y` and the other end
+  for the start `y = cell_to_position(cell, Origin.CENTRE).y` and the other end
   `y + bob_distance`, both `y - 10 >= 0` and `y + 10 <= Screen.height` (the
   sprite reaches 10 px up and down from its origin, `assets.md`). The path
   is a straight vertical line, so checking its two ends covers all of it.
@@ -221,7 +225,7 @@ lookup of taken cells:
      (c - 1, r), (c, r), (c + 1, r) and (c - 1, r - 1), (c, r - 1),
      (c + 1, r - 1). So nothing else can be placed where its box is, and
      two walker Bs need two free columns between them.
-  9. **crushers**, each its own cell (its 18 × 18 box fills it exactly)
+  9. **crushers**, each its own cell (its 16 × 18 box fits inside it)
 - **Bars, flyers and leapers are not in this check.** They collide with
   nothing, so they are free to be anywhere: in the ground, on a block or on
   another thing. Each only checks its own list for duplicates: no two bars
@@ -234,14 +238,15 @@ lookup of taken cells:
 
 ### Cell to position
 
-`Level.cell_to_position(cell, origin)` turns a cell into the `position`
-for a thing, from the kind of origin it has (`assets.md`):
+`Level.cell_to_position(cell: Vector2i, origin: Origin) -> Vector2`, with
+`enum Origin { TOP_LEFT, FEET, CENTRE }` on `Level`, turns a cell into
+the `position` for a thing, from the kind of origin it has (`assets.md`):
 
 | Origin | `position` | Where the thing ends up |
 |---|---|---|
-| Top-left | `cell * Grid.TILE` | Filling the cell |
-| Feet | `cell * Grid.TILE + Vector2i(Grid.HALF_TILE, Grid.TILE)` | Standing in the cell, on the top of the cell below |
-| Centre | `cell * Grid.TILE + Vector2i(Grid.HALF_TILE, Grid.HALF_TILE)` | Centred in the cell |
+| `Origin.TOP_LEFT` | `cell * Grid.TILE` | Filling the cell |
+| `Origin.FEET` | `cell * Grid.TILE + Vector2i(Grid.HALF_TILE, Grid.TILE)` | Standing in the cell, on the top of the cell below |
+| `Origin.CENTRE` | `cell * Grid.TILE + Vector2i(Grid.HALF_TILE, Grid.HALF_TILE)` | Centred in the cell |
 
 The flag is the one exception: it is placed automatically (`flag.md`).
 
@@ -414,7 +419,7 @@ player and enemies never touch them.
   `randi_range`, each candidate equally likely. The candidates are the
   biome's decorations, plus a **waterfall** when `has_water` is on and the
   floor's row is 11 or less (so the waterfall has room for its top and
-  base), plus one **big decoration** when the level allows one and its
+  base), plus one **big decoration** when that tile allows one and its
   cooldown allows (see Big decorations).
 - **A plain decoration** goes in the cell directly above the surface tile,
   in `Decorations`, with the built-in `set_cell()`.
@@ -450,8 +455,7 @@ decorations. They share one candidate in the roll above and one cooldown.
 So the plain, flat fill under the floors doesn't look bland, some floors
 get a **ground piece**: a picture of a lower ledge, drawn in front of the
 ground's fill where two floors meet, with its own outline. Purely visual:
-it looks like ground but nothing touches it. (Like the bottom of Kenney's
-pixel platformer samples, `~/Downloads/kenney_pixel-platformer/SampleB.png`.)
+it looks like ground but nothing touches it.
 
 - **Which floors:** every floor except the first, each paired with the floor
   before it, end floor included. A pair can get a piece only if both
@@ -646,6 +650,12 @@ on, there is a way onward to the right.
   level, but every level must still be crossable to the flag.
 - Springs (`spring.md`) are not part of the check: every level must be
   crossable without them. A spring is only ever an extra.
+- Blocks (`breakable-block.md`, `gift-block.md`) are not part of the
+  check either: a block is not a standable thing here, and the check never
+  looks for blocks in the way of a jump. Keeping blocks out of the way
+  across (for example, no row of gift blocks just above a gap's take-off,
+  where they would cut the jump short) is up to the level design: check
+  it on a snapshot.
 
 For reference, with today's numbers and no water, the furthest reachable
 next floor is:
@@ -674,14 +684,14 @@ may go anywhere.
 
 | Case | Expected |
 |---|---|
-| `[Vector2i(30, 11)]` | Ground in columns 0 to 29, rows 11 to 14, then the end floor in columns 30 to 39, rows 12 to 14; nothing anywhere else |
+| `[Vector2i(30, 11)]` | `Ground` cells in columns 0 to 29, rows 11 to 14, then the end floor in columns 30 to 39, rows 12 to 14; no other `Ground` cells |
 | A floor on row 15 | No tiles and no decorations in its columns |
 | A floor on row 14 | Ground tiles, but no decorations |
 | A long floor | About 1 in 5 surface tiles has a decoration or waterfall, from the level's biome |
 | Decorations | Drawn behind the ground, the player and enemies; never block anything |
 | `has_water` on, 30 columns of written floors | Water surface on row 13 and water body on row 14, columns 0 to 39 (end floor included), animating |
 | `has_water` off | No water and no waterfalls |
-| `[Vector2i(4, 8), Vector2i(5, 11)]`, the pair gets a piece | Start row 12 (one below the lower surface, row 11); left column 1 to 3, right column 4 to 7; rows 12 to 14; outlined, fills mixed |
+| Floors starting `[Vector2i(4, 8), Vector2i(5, 11), ...]` (the level goes on to at least 16 written columns), the pair gets a piece | Start row 12 (one below the lower surface, row 11); left column 1 to 3, right column 4 to 7; rows 12 to 14; outlined, fills mixed |
 | Many builds of the same level | About half of the allowed pairs get a piece |
 | A pair where either floor is 1 wide | Never a piece |
 | A pair with a gap, or with a floor on row 14 | Never a piece |
@@ -750,7 +760,7 @@ may go anywhere.
 | A scene added without `setup()` | Stops at its `_ready` with "setup() not called" |
 | A coin pops out of a gift block | The coin is in `BlockItems`, drawn behind the block |
 | An enemy is stomped | Its death scene is in `Effects`, drawn in front of the water |
-| `biome` changed to `GRASS` | `Ground` and `Decorations` use the grass `TileSet`s |
+| `biome` changed to `GRASS` | `Ground`, `GroundPieces` and `RopeCeilings` use the grass `TileSet`; `Decorations`, `GroundPieceDecorations` and `RopeCeilingDecorations` use the grass decorations `TileSet`; the background is `res://art/backgrounds/sprite_3.png` |
 | Same row, 5-tile gap | Jump check passes |
 | Same row, 6-tile gap | The build stops with an `assert` naming the floor; in a snapshot, a red marker instead |
 | Two failing jumps in one level | One `assert` listing both |
@@ -761,6 +771,7 @@ may go anywhere.
 | Same row, 7-tile gap, with a 3-wide platform on that row starting 3 tiles into the gap | Passes: the first floor reaches the platform, the platform reaches the next floor |
 | The same without the platform | Fails on the first floor: the build stops; in a snapshot, a red marker there |
 | A gap only a spring can get past | Fails: springs are not part of the check |
+| A row of gift blocks just above a gap's take-off, low enough to cut the jump short | Passes: blocks are not part of the check |
 | A platform 4 rows above a floor's right edge, starting left of it and ending past it | The floor passes: the player jumps up through the platform and lands on it |
 | A platform over a floor that runs on past the platform's right end | The platform passes: walking off its end lands on the floor |
 | A platform 2 rows below a floor's right edge, starting at the take-off point | The floor passes: walking off the edge lands on it |

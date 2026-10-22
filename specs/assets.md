@@ -27,9 +27,9 @@ origins are measured from the top-left corner of the image, in pixels.
 | `res://art/walker_a/sprite_*.png` | 17 × 16 | x 1, y 3 | 15 × 12 | 8, 15 (feet) |
 | `res://art/walker_b/sprite_*.png` | 26 × 24 | x 1, y 3 | 24 × 20 | 13, 23 (feet) |
 | `res://art/walker_c/sprite_*.png` | 17 × 21 | x 1, y 9 | 15 × 11 | 8, 20 (feet) |
-| `res://art/crusher/sprite_*.png` | 20 × 20 | x 1, y 1 | 18 × 18 | 10, 19 (feet) |
+| `res://art/crusher/sprite_*.png` | 20 × 20 | x 2, y 1 | 16 × 18 | 10, 19 (feet) |
 | `res://art/diamond/sprite_1.png` | 16 × 15 | x 1, y 1 | 14 × 13 | 8, 14 (feet) |
-| `res://art/spring/sprite_1.png` | 18 × 18 | x 0, y 4 | 18 × 14 | 9, 18 (feet) |
+| `res://art/spring/sprite_1.png` | 18 × 18 | x 1, y 4 | 16 × 14 | 9, 18 (feet) |
 | `res://art/flyer/sprite_*.png` | 26 × 20 | x 8, y 7 | 10 × 10 | 13, 10 (centre) |
 | `res://art/leaper/sprite_*.png` | 13 × 17 | x 1, y 1 | 11 × 15 | 6, 8 (centre) |
 | `res://art/bar/sprite_1.png` (each sprite) | 26 × 26 | x 6, y 6 | 14 × 14 | 13, 13 (centre) |
@@ -57,6 +57,15 @@ places them and gives the solids and platforms their collision (`level-tiles.md`
 - Where one thing needs its box twice, a body and its child `Area2D` (the
   player and its contact area, the diamond and its pickup area), both use
   the same `RectangleShape2D` resource.
+- **No moving body's box is a whole tile wide.** The crusher's and the
+  spring's boxes are 16 px wide, 1 px inside each side of their 18 px
+  cell. With an 18 px box, the body's sides lie exactly on the tile
+  edges, and Godot treats a wall or body touching it there as hit
+  (tested on 4.7.2): a falling spring caught on the top corner of a
+  spring standing in the next column and stood on it, 14 px above the
+  floor, and a crusher falling and rising beside a wall reported
+  `is_on_wall()` on almost every update and drifted sideways. At 16 px
+  none of this happens. The heights stay as drawn.
 - `VisibleOnScreenEnabler2D` areas are not these boxes: they are the whole
   sprite, or the whole path, as each enemy's spec says.
 - Walker `res://art/walker_*/sprite_3.png` is the flattened sprite, used

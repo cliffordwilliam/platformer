@@ -4,8 +4,7 @@ A rope standing on the ground and holding up a mass of ground that hangs
 from the top of the screen, with plants hanging under it. Built like a
 tree (`trees.md`): the rope is the trunk and the ground mass is the
 canopy. Purely visual, drawn behind everything with the trees: nothing
-touches it. Read `level-layout.md` and `trees.md` first. (Like the top left
-of Kenney's sample, `~/Downloads/kenney_pixel-platformer/SampleA.png`.)
+touches it. Read `level-layout.md` and `trees.md` first.
 
 ## Art
 
@@ -75,19 +74,19 @@ on its right edge, built exactly like the tree's supporting canopies
 (`trees.md`, Building one tree): a random anchor row on that edge column,
 growing toward the farther end of the main mass, `randi_range(1, 3)` wide
 counting the anchor's column (growing outward), `randi_range(1, 3)` tall
-counting the anchor's row. So the mass gets steps on its sides, like the
-sample.
+counting the anchor's row. So the mass gets steps on its sides.
 
 ## Drawing the ground mass
 
 - Unlike the tree canopies, the main and supporting masses are **one
-  shape with one outline**, as in the sample: all their cells are painted
+  shape with one outline**: all their cells are painted
   together with the built-in `set_cells_terrain_connect(cells, 0, 0)`
   (`level-tiles.md`, Terrains), which gives the merged shape its edges,
   corners and inner corners, and mixes the two fills.
 - The mass continues off the top of the screen: for every column that has
   a cell on row 0, the cell on row **-1** is painted too, so row 0 gets
-  plain fill tiles instead of a top outline.
+  the tiles of a shape that goes on upward (fill, and side edges on the
+  outer columns) instead of a top outline.
 - Ropes are at least one screen width apart (the shared cooldown), so two
   masses never touch.
 

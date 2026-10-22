@@ -1,9 +1,7 @@
 # Squash and stretch
 
 Fire-and-forget squash and stretch on the sprites of the player, the
-walkers and the crusher, copied from the user's earlier project
-`~/projects/wobble-protocol` (`actor/actor.gd` and `enemy/enemy.gd`), with
-the same values. Read `overview.md` first.
+walkers and the crusher. Read `overview.md` first.
 
 The flyer, the leaper and the bar never squash or stretch. The diamond and
 the spring do, like a walker, and the spring also bounces when it launches

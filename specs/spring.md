@@ -9,8 +9,10 @@ launched high into the air. Read `overview.md`, `player-movement.md` and
 - `res://art/spring/sprite_1.png`, 18 × 18, one frame, no animation. The
   art fills rows 4 to 17 of the image, so it stands on the bottom of its
   cell.
-- Collision box 18 × 14 at x 0, y 4 in the image (the whole drawn spring);
-  origin (9, 18), its feet (`assets.md`), so it squashes into the floor.
+- Collision box 16 × 14 at x 1, y 4 in the image: the drawn spring, 1 px
+  narrower on each side so it never sits exactly on a tile edge
+  (`assets.md`, Collision boxes); origin (9, 18), its feet (`assets.md`),
+  so it squashes into the floor.
 
 ## Constants
 
@@ -23,7 +25,7 @@ launched high into the air. Read `overview.md`, `player-movement.md` and
 - The level script's `springs` field, an `Array[Vector2i]` of cells
   (`level-layout.md`), like the coins. With its feet origin, a spring
   starts standing in its cell, on the top of the cell below
-  (`cell_to_position(cell, feet)`).
+  (`cell_to_position(cell, Origin.FEET)`).
 - Each in the `Springs` layer node. Checked before the build like the
   coins: inside the level's columns, and its starting cell shared with
   nothing (`level-layout.md`, Occupied cells).

@@ -29,7 +29,7 @@ are only allowed in levels with water. Read `overview.md` first.
 
 The **start point** is where the leaper is placed. The level script's
 `leapers` list gives only its column; the row is always **14**, so the
-start point is `cell_to_position(Vector2i(column, 14), centre)`: y = 261,
+start point is `cell_to_position(Vector2i(column, 14), Origin.CENTRE)`: y = 261,
 the middle of the water body (rows are `Grid.TILE` high). Its 17 px sprite
 then covers y 253 to 270, fully behind the water (and mostly below the
 screen's bottom edge, 257). It still switches on as its column comes on

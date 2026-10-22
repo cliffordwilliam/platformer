@@ -89,8 +89,9 @@ equally likely.
 
 ## Drawing
 
-One `TileMapLayer`, `Platforms`, right before `Ground` among the level
-root's children (`level-layout.md`, Building), so mushroom stalks are drawn
+One `TileMapLayer`, `Platforms`, right before `Ladders` (`ladder.md`) and
+`Ground` among the level root's children (`level-layout.md`, Building),
+so mushroom stalks are drawn
 behind everything the player touches. One platform `TileSet` holds all
 six images as atlas sources (the two planks, the cloud, the stone, the cap
 and the stalk) (Texture Region Size 18 × 18, Separation 0,

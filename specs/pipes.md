@@ -23,8 +23,8 @@ the tree branches (`trees.md`).
 ## Layer
 
 - One `TileMapLayer`, `Pipes`, among the level root's children right after
-  the tree layers (`level-layout.md`, Building): behind the plain
-  decorations, the ground and everything else.
+  the rope layers (`ropes.md`; `level-layout.md`, Building): behind the
+  plain decorations, the ground and everything else.
 - One pipe `TileSet`: one atlas source (Texture Region Size 18 × 18,
   Separation 0, Margins 0), no physics, no terrains.
 

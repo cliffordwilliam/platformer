@@ -44,7 +44,7 @@ The player starts at the level script's `player_cell`. The **level root**
 sets up the starting positions in its own `_ready`, after building
 everything (`level-layout.md`, Building), in this order:
 
-1. **Player first:** `position = cell_to_position(player_cell, feet)`
+1. **Player first:** `position = cell_to_position(player_cell, Origin.FEET)`
    (standing in that cell). `player_cell` has already been checked
    (`level-layout.md`, Checking the layout), so it needs no clamp.
 2. **Then the camera:** centres on the player, then clamps so the screen
