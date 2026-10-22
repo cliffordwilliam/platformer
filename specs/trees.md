@@ -13,7 +13,7 @@ Coordinates are (column, row).
 
 | Tile | What |
 |---|---|
-| (0, 0) | Top: the trunk's last tile, just under the main canopy |
+| (0, 0) | Top: the trunk's last tile, its tip drawn into the main canopy's bottom row |
 | (0, 1) | Body, with leaf tufts |
 | (0, 2) | Branch point, both sides |
 | (0, 3) | Body, plain |
@@ -93,8 +93,10 @@ included), each value equally likely.
 - Each tip and each piece picks its leafy or bare version, equally likely.
 - Left branches use the tiles as drawn; right branches use them mirrored.
 
-**Main canopy**, in `TreeCanopies`: a rectangle whose bottom row is directly
-above the trunk's top tile.
+**Main canopy**, in `TreeCanopies`: a rectangle whose bottom row is on the
+trunk's top tile's row, so the canopy covers the top of the trunk (it is
+drawn in front of `Trees`) and the trunk runs up into it. (Unlike the
+rope's mass, which sits directly above the rope's cap, `ropes.md`.)
 
 - Width: the trunk's column, plus `randi_range(1, 2)` columns to the left,
   plus `randi_range(1, 2)` to the right (3 to 5 wide).
@@ -140,6 +142,6 @@ A tree may reach above the top of the screen. That is fine.
 | Supporting canopy, width 1 | Exactly on the main canopy's edge column |
 | Any tree | Stump on the cell above a surface tile, 3 to 5 middle tiles, then the top |
 | A branch point | Its branch(es) in the same row, 1 or 2 tiles long, ending in a tip; right ones mirrored |
-| Main canopy | Bottom row directly above the top tile, 3 to 5 wide, 1 to 5 tall, outline unbroken |
+| Main canopy | Bottom row on the trunk's top tile's row, covering it; 3 to 5 wide, 1 to 5 tall, outline unbroken |
 | Supporting canopies | One on each side, drawn in front of the main canopy with their own outlines |
 | Trees | Drawn behind the ropes, the plain decorations and everything else, in front of the background |

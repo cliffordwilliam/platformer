@@ -114,8 +114,15 @@ Ladders are in `ladder.md`; this is the player's side.
 ## Collisions
 
 - Hitting a floor, wall or ceiling sets the speed going into it to zero.
-  On flat surfaces `move_and_slide()` already does this, so no extra code is
-  needed.
+  For floors and ceilings `move_and_slide()` does this by itself.
+- **Walls need one line:** while the player keeps pushing into a wall,
+  `move_and_slide()` does not zero `velocity.x` on every update. It
+  creeps up (2.5 px/s, 5, 7.5...) between the updates that register the
+  collision (tested on 4.7.2), so the state would flip between Walk and
+  Idle and the wall bounce (`squash.md`) would replay every few updates.
+  So right after `move_and_slide()`: if `is_on_wall()` and `velocity.x`
+  points into the wall (`velocity.x * get_wall_normal().x < 0`),
+  `velocity.x = 0`. Pushing into a wall is then Idle on every update.
 
 ## States
 
@@ -142,8 +149,9 @@ no gravity at all.
 
 ## Facing
 
-- Facing is shown with the sprite's `flip_h`. The character starts facing
-  right.
+- Facing is shown with the sprite's `flip_h`. **The player art faces
+  left**, so `flip_h` is true while facing right. The character starts
+  facing right (`flip_h` true).
 - Facing follows the held direction, on the update it is pressed, even while
   `velocity.x` is still slowing down from the other way.
 - When no direction is held (or both are), it keeps its last facing.
@@ -160,6 +168,8 @@ tuning of the game feel.
 | Standing still, then right held | `velocity.x` is below 101.25 after 40 updates and exactly 101.25 after 41 |
 | Jump held from the start until landing | Peak height 82.6 px above the start, back on the floor after 56 updates |
 | Jump held for exactly 1 update, then released | Peak height 25.45 px above the start, back on the floor after 20 updates |
+| Walking into a wall and holding the direction | `velocity.x` is 0 after every update; state Idle on every update; the wall bounce plays once |
+| Start; right held; left held | `flip_h` true; true; false |
 | Up held at the bottom of a 4-cell ladder | Climbs at 67.5 px/s; the feet stop exactly on the ladder's top, then Idle, standing there with up still held |
 
 - Update counts start with the update on which the jump starts and must

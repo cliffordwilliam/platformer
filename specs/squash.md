@@ -87,7 +87,7 @@ off, and carry on afterwards.
 | Every update in Fall | `update_air_squash(velocity.y, 270)` |
 | Landing: Fall to Idle or Walk | `play_bounce()` |
 | Entering Climb | `cancel_squash()`, then `scale = Vector2.ONE` (so a fall's stretch never stays on while climbing) |
-| Stopping against a wall: Walk to Idle while `is_on_wall()` | `play_bounce()` |
+| Stopping against a wall: Walk to Idle while `is_on_wall()` | `play_bounce()`, once: pushing on stays Idle (`player-movement.md`, Collisions) |
 | Getting hurt (an injury, not a death) | `play_bounce()`. It starts when the injury freeze ends, because the tween stops while the game is paused |
 
 ### Walkers

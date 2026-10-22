@@ -87,8 +87,8 @@ The same order as the player, without input:
 
 - The sprite flips with its built-in `flip_h` to face the way the walker
   walks.
-- The sprite art faces right, so `flip_h` is true while walking left. A
-  walker starts with `flip_h` true.
+- **The walker art faces left** (all three variants), so `flip_h` is true
+  while walking right. A walker starts walking left, with `flip_h` false.
 
 ## Landing *(WalkingBody)*
 
@@ -155,8 +155,8 @@ during the injury freeze like the rest of the game (the default
 | Hits a wall while falling | Turns around, still falling |
 | Lands | `velocity.y == 0`, same walking direction |
 | Two walkers walk into each other | Both turn around |
-| Just placed, walking left | `flip_h` is true |
-| Walking right | `flip_h` is false |
+| Just placed, walking left | `flip_h` is false |
+| Walking right | `flip_h` is true |
 | Off screen | Walker does not move |
 | Comes on screen | Walker starts walking left |
 | Falls below the screen | Walker is switched off |

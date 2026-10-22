@@ -92,7 +92,13 @@ The ground is an ordered list of floors, each a `Vector2i(width, row)`:
   last row the screen shows (rows are `Grid.TILE` high, so row 14 is 252–270 and only
   its top 5 px are on the 257 px screen).
 - **A gap** is a floor whose row is 15 or more: below the screen, so
-  nothing is drawn.
+  nothing is drawn. **With water** (`has_water` on), a floor on row 13 or
+  14 is a gap too: it would be under the water, so no ground is built
+  there. Walkers, the diamond and springs that walk or fall in sink
+  behind the water and off the bottom of the screen, where their enablers
+  switch them off for good, instead of walking along under the water.
+  Everything that treats gaps (ground cells, spikes, ground pieces,
+  occupied cells, the jump check) treats these floors the same way.
 - **The end floor:** right after `layout()`, the level root adds one more
   floor to the end of `floors`: `Vector2i(10, 12)`, 10 columns on row 12.
   The level script never writes it. It holds the flag's column (the 10th
@@ -605,8 +611,7 @@ again.
   the height at which the player dies (`player-damage.md`).
   - Without water: `Screen.height` (257), the bottom of the screen.
   - With water: **234** (`13 * Grid.TILE`), the top of the water surface, so the
-    player dies on touching the water, even over ground on rows 13 or 14
-    behind the water.
+    player dies on touching the water.
 
 ## Jump check
 
@@ -624,8 +629,8 @@ on, there is a way onward to the right.
   past it is ahead of that floor.)
 - The check walks the floors first, then the platforms. For each standable
   thing, it has up to **two targets**: the first floor ahead of it (the
-  next standable one in `floors`, which runs left to right, skipping gaps
-  and, with water, floors on row 13 or 14) and the first platform
+  next standable one in `floors`, which runs left to right, skipping gaps)
+  and the first platform
   ahead of it (the one with the leftmost left edge; `platforms` can be in
   any order, and on a tie the one listed first). A thing with nothing ahead
   of it (the end floor, or a platform reaching the level's end) needs no
@@ -733,7 +738,8 @@ may go anywhere.
 | Player falls into a gap | Passes the spikes and dies at `death_y` (257); the spikes block nothing |
 | A waterfall on a floor on row 8 | Top on row 8, body on rows 9 to 11, base on row 12 |
 | `has_water` on, floor on row 12 | Gets decorations but never a waterfall |
-| `has_water` on, floor on row 13 | No decorations; the jump check treats it as a gap |
+| `has_water` on, floor on row 13 or 14 | A gap: no ground tiles, no decorations, no ground piece; the jump check skips it |
+| `has_water` on, a walker walks off a ledge into the water | It sinks behind the water, falls below the screen and is switched off; it never walks under the water |
 | `has_water` on | `death_y` is 234; off, it is 257 |
 | Leaper rising from water | In front of waterfalls, behind the water |
 | Any `floors` | `level_end_x` = sum of widths × `Grid.TILE` |
