@@ -89,13 +89,17 @@ equally likely.
 
 ## Drawing
 
-One `TileMapLayer`, `Platforms`, right before `Ladders` (`ladder.md`) and
-`Ground` among the level root's children (`level-layout.md`, Building),
-so mushroom stalks are drawn
+One `TileMapLayer`, `Platforms`, right before `MushroomDecorations`,
+`Ladders` (`ladder.md`) and `Ground` among the level root's children
+(`level-layout.md`, Building), so mushroom stalks are drawn
 behind everything the player touches. One platform `TileSet` holds all
 six images as atlas sources (the two planks, the cloud, the stone, the cap
 and the stalk) (Texture Region Size 18 × 18, Separation 0,
 Margins 0), no terrains.
+
+`MushroomDecorations`, right after `Platforms`, holds the plants hanging
+under mushroom caps. It uses the biome's decorations `TileSet`
+(`level-layout.md`, Decorations).
 
 ### Wooden
 
@@ -145,6 +149,20 @@ Exactly like the cloud, with the stone sheet:
 - Over a gap the stalk runs down past the bottom of the screen to the
   gap's row. That is fine: nothing below row 14 is seen.
 
+**Hanging plants**, under the cap, like under a rope's mass (`ropes.md`,
+Hanging plants):
+
+- Every cap column except the centre (the stalk's) column: if the cell
+  right below the cap is air (not ground, gaps included, and not another
+  platform, the same test as the stalk's), it has a **20 %** chance
+  (`randf() < 0.2`) of one of the biome's decorations, picked with
+  `randi_range`, each equally likely.
+- Drawn **upside down** (`TRANSFORM_FLIP_V` in `set_cell()`'s alternative
+  tile), so it hangs from the cap.
+- In their own `TileMapLayer`, `MushroomDecorations` (see Drawing). Not
+  seeded, like the other decorations, and left out of snapshots
+  (`level-layout.md`, Snapshot).
+
 ## Physics
 
 - The platform `TileSet` has one physics layer with `collision_layer` =
@@ -182,6 +200,8 @@ Exactly like the cloud, with the stone sheet:
 | Any stalk body | Variant 1 or 2, picked per cell |
 | Mushroom cap directly above the ground (row 11, ground row 12) | No stalk cells |
 | A mushroom above another platform, of any look | Its stalk stops on that platform, with its base just above it |
+| Many mushrooms over air | About 1 in 5 cap cells (centre column left out) has an upside-down biome decoration in the cell below |
+| Any mushroom | Never a hanging plant in the stalk's column, or where the cell below the cap is ground or another platform |
 | Mushroom centre column over a gap | Stalk runs down off the bottom of the screen |
 | Player jumps up into a platform from below, any look | Passes through, is not stopped, nothing is bonked |
 | Player falls onto a platform, any look | Lands and stands on it |

@@ -28,7 +28,8 @@ Coordinates are (column, row):
 
 ## Drawing
 
-- One `TileMapLayer`, `Ladders`, right after `Platforms` among the level
+- One `TileMapLayer`, `Ladders`, right after `Platforms` and
+  `MushroomDecorations` (`one-way-platform.md`) among the level
   root's children (`level-layout.md`, Building). The level keeps it as
   `level.ladder_layer`.
 - One ladder `TileSet`: one atlas source (Texture Region Size 18 × 18,

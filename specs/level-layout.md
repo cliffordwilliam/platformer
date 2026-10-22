@@ -72,7 +72,8 @@ func layout() -> void:
 
 - `biome` sets `Ground`'s, `GroundPieces`' and `RopeCeilings`' `tile_set`
   to that biome's `TileSet` (`level-tiles.md`), `Decorations`',
-  `GroundPieceDecorations`' and `RopeCeilingDecorations`' `tile_set` to
+  `GroundPieceDecorations`', `RopeCeilingDecorations`' and
+  `MushroomDecorations`' `tile_set` to
   that biome's decorations `TileSet` (see Decorations), and the
   `Background`'s picture (`background.md`).
 - `Level._ready()` calls `layout()`, adds the end floor, checks the
@@ -319,8 +320,8 @@ whole level exists.
    3. `Pipes` (`TileMapLayer`, see `pipes.md`)
    4. `Decorations` (`TileMapLayer`)
    5. `Flag` (see `flag.md`)
-   6. `Platforms`, then `Ladders` (`TileMapLayer`s, see
-      `one-way-platform.md` and `ladder.md`)
+   6. `Platforms`, then `MushroomDecorations`, then `Ladders`
+      (`TileMapLayer`s, see `one-way-platform.md` and `ladder.md`)
    7. `Ground` (`TileMapLayer`)
    8. `Spikes` (`TileMapLayer`, see Spikes)
    9. `Waterfalls`, then `GroundPieces`, then `GroundPieceDecorations`
@@ -549,7 +550,8 @@ godot --path . --write-movie snapshots/level_1_page_0.png --quit-after 2 res://t
   code 0 (tested on 4.7.2).
 - **No random art in a snapshot:** while `Level.show_guides` is on, the
   build skips the plain decorations, the waterfalls, the big decorations
-  (trees, pipes, ropes) and the ground pieces with their decorations.
+  (trees, pipes, ropes), the ground pieces with their decorations, and
+  the plants hanging under mushroom caps.
   They are only random pictures that nothing touches, and each snapshot
   is its own run, so they would come out differently on every page and
   every snapshot and get in the way of reading the level. Everything else
@@ -744,7 +746,7 @@ may go anywhere.
 | Leaper rising from water | In front of waterfalls, behind the water |
 | Any `floors` | `level_end_x` = sum of widths × `Grid.TILE` |
 | Snapshot | Numbered grid and guides shown |
-| Snapshot | No plain decorations, waterfalls, trees, pipes, ropes or ground pieces; ground, water, spikes, platforms, ladders and placed things as usual |
+| Snapshot | No plain decorations, waterfalls, trees, pipes, ropes, ground pieces or plants under mushroom caps; ground, water, spikes, platforms, ladders and placed things as usual |
 | Snapshot with no `snapshots/` folder | Nothing written; create the folder first |
 | Normal run | No grid, no guides |
 | Snapshot page 1 | Camera's left edge at x = 450 |
