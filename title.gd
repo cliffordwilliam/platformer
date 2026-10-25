@@ -48,6 +48,9 @@ func _physics_process(_delta: float) -> void:
 	get_tree().change_scene_to_file("res://levels/level_1.tscn")
 
 
-func _exit_tree() -> void:
-	_music.stop()
-	_music.stream = null
+## Stops the music on the way out, before the quit starts (see Level).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE:
+		if _music != null:
+			_music.stop()
+			_music.stream = null

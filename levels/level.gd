@@ -920,10 +920,14 @@ func ladder_at(cell: Vector2i) -> bool:
 	return ladder_layer.get_cell_source_id(cell) != -1
 
 
-func _exit_tree() -> void:
-	if music != null:
-		music.stop()
-		music.stream = null
+## Stops the music and drops its stream on the way out, so nothing leaks
+## at exit. It must happen before the quit starts: a track stopped while
+## the tree is being torn down is still reported as leaked (tested).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE:
+		if music != null:
+			music.stop()
+			music.stream = null
 
 
 ## SpriteFrames from {animation: [[paths], fps]}; fps 0 for one still frame.
@@ -1045,6 +1049,33 @@ func _check_jumps() -> void:
 
 ## Draws the grid, the floor labels and the failing jumps into `guides`.
 func _draw_guides() -> void:
-	pass
+	var font := ThemeDB.fallback_font
+	var bottom := (LAST_ROW + 1) * Grid.TILE
+	var grid_color := Color(1, 1, 1, 0.25)
+	for column in _column_count() + 1:
+		guides.draw_line(Vector2(column * Grid.TILE, 0), Vector2(column * Grid.TILE, bottom), grid_color)
+	for row in LAST_ROW + 2:
+		guides.draw_line(Vector2(0, row * Grid.TILE), Vector2(level_end_x, row * Grid.TILE), grid_color)
+	for column in _column_count():
+		_guide_text(font, Vector2(column * Grid.TILE + 1, 7), str(column), Color.WHITE)
+	for page_column in range(0, _column_count(), 25):
+		for row in LAST_ROW + 1:
+			_guide_text(font, Vector2(page_column * Grid.TILE + 1, row * Grid.TILE + 16), str(row), Color.WHITE)
+	for i in floors.size():
+		var x := _floor_starts[i] * Grid.TILE
+		guides.draw_line(Vector2(x, 0), Vector2(x, bottom), Color.YELLOW, 1.0)
+		var label := "start" if i == 0 else "end" if i == floors.size() - 1 else "[%d] col %d" % [i - 1, _floor_starts[i]]
+		var row := 12 if _is_gap(floors[i]) else floors[i].y - 1
+		_guide_text(font, Vector2(x + 2, row * Grid.TILE + 8), label, Color.YELLOW)
+	for cell in jump_failures:
+		var rect := Rect2(cell * Grid.TILE, Vector2(Grid.TILE, Grid.TILE))
+		guides.draw_rect(rect, Color(1, 0, 0, 0.5))
+		guides.draw_line(rect.position, rect.end, Color.RED, 2.0)
+		guides.draw_line(Vector2(rect.end.x, rect.position.y), Vector2(rect.position.x, rect.end.y), Color.RED, 2.0)
+
+
+func _guide_text(font: Font, at: Vector2, text: String, color: Color) -> void:
+	guides.draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 7, 2, Color.BLACK)
+	guides.draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 7, color)
 
 #endregion
