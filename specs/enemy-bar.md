@@ -83,6 +83,29 @@ and reaches `units * 30` px out from the centre on each side.
 
 - None. Every spot shows the same single sprite.
 
+## Placing a bar (a note for the level builder)
+
+A bar low enough to cut across the player's way can only be passed if the
+part the player passes moves the **same way as the player**. The player
+walks at most 101.25 px/s, and a ball 2 units out moves about 110 px/s,
+so balls coming toward the player leave no gap to walk through: with a
+2-unit bar dipping 19 px below the player's head, walking under it
+against its spin fails at every starting moment, while walking with it
+gets through from 153 of 180 (simulated, then tested). A deeper bar can't
+be passed against its spin at any speed.
+
+So when the level means the player to get past a bar (levels run left to
+right):
+
+- **under it:** its bottom must move right: `clockwise = false`.
+- **over it** (jumping across its top): its top must move right:
+  `clockwise = true`.
+
+A bar turning the other way is a wall to wait out or go around, never the
+only way on. The build does not check this (the jump check ignores bars,
+`level-layout.md`): check it on a snapshot, where the sweep circle shows
+how low and how high the bar reaches.
+
 ## Acceptance test
 
 | Case | Expected |
@@ -93,3 +116,4 @@ and reaches `units * 30` px out from the centre on each side.
 | After 1 s, `clockwise = false`, `start_angle = 0` | Line at -105.5° |
 | Any time | Every sprite's `rotation` is 0 |
 | Player touches any sprite | Player is hurt |
+| A 2-unit bar whose lowest ball dips 19 px below the head of a player standing 126 px to its left; the player walks right from a standstill, at start angles 0°, 30°, 120° and 150° | `clockwise = false`: passes under unhurt every time; `clockwise = true`: hurt every time |
