@@ -878,3 +878,611 @@ func test_jumps_only_after_other_checks() -> void:
 	check_equal(l.errors.size(), 1, "only the coin's error")
 
 #endregion
+
+
+#region Walkers (enemy-walker.md)
+
+func walker(i := 0) -> Walker:
+	return level.walker_layer.get_child(i)
+
+
+## Puts the player above a point, falling.
+func drop_player(at: Vector2) -> void:
+	level.player.position = at
+	level.player.velocity = Vector2.ZERO
+	level.player.state = Player.State.FALL
+
+
+## Waits until a condition holds, up to `limit` updates; returns whether it did.
+func wait_until(condition: Callable, limit := 300) -> bool:
+	for i in limit:
+		if condition.call():
+			return true
+		await updated
+	return condition.call()
+
+
+func test_walker_walks_left() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.PLAIN)]))
+	await wait(5)
+	check_near(walker().velocity.x, -33.75, "walks left at 33.75")
+	check_near(walker().velocity.y, 0.0, "standing: velocity.y 0")
+	check(not walker().sprite.flip_h, "flip_h false walking left")
+	check(walker().sprite.is_playing() and walker().sprite.animation == "walk", "walk animation")
+	check(walker() is Walker and walker().get_script().resource_path.ends_with("walker.gd"), "walker A is a Walker")
+
+
+func test_walker_kinds() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(10, 11), WalkerSpawn.Kind.PLAIN),
+			WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.SHELL),
+			WalkerSpawn.new(Vector2i(18, 11), WalkerSpawn.Kind.SPIKED)]))
+	check(walker(0) is Walker and walker(0) is not ShellWalker and walker(0) is not SpikedWalker, "A: Walker")
+	check(walker(1) is ShellWalker and walker(1) is Walker, "B: ShellWalker")
+	check(walker(2) is SpikedWalker and walker(2) is Walker, "C: SpikedWalker")
+	check(walker(1).scene_file_path == "res://enemies/walker_b.tscn", "B from walker_b.tscn")
+
+
+func test_walker_turns_at_walls() -> void:
+	make(func(l: Level) -> void:
+		l.floors = [Vector2i(5, 12), Vector2i(2, 10), Vector2i(23, 12)]
+		l.walkers = [WalkerSpawn.new(Vector2i(16, 11), WalkerSpawn.Kind.PLAIN)])
+	check(await wait_until(func() -> bool: return walker().is_on_wall()), "reaches the wall on its left")
+	await updated
+	check_near(walker().velocity.x, 33.75, "turns right on the next update")
+	check(walker().sprite.flip_h, "flip_h true walking right")
+
+
+func test_walker_two_bump() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(10, 11), WalkerSpawn.Kind.PLAIN),
+			WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.PLAIN)]))
+	walker(0).speed = 33.75
+	await wait(90)
+	check(walker(0).speed < 0 and walker(1).speed > 0, "both turned around")
+
+
+func test_walker_ledge() -> void:
+	make(func(l: Level) -> void:
+		l.floors = [Vector2i(10, 12), Vector2i(3, 15), Vector2i(13, 12)]
+		l.walkers = [WalkerSpawn.new(Vector2i(20, 11), WalkerSpawn.Kind.PLAIN)])
+	await wait(5)
+	check(await wait_until(func() -> bool: return not walker().is_on_floor()), "walks off the ledge")
+	var speeds: Array[float] = [walker().velocity.y]
+	for i in 14:
+		await updated
+		speeds.append(walker().velocity.y)
+	check(speeds[11] < 202.5 and is_equal_approx(speeds[12], 202.5), "202.5 on the 13th update off the floor")
+	check(speeds.max() <= 202.5, "never above 202.5")
+	check_near(absf(walker().velocity.x), 33.75, "keeps walking sideways")
+	check(await wait_until(func() -> bool: return not walker().can_process(), 120), "switched off below the screen")
+
+
+func test_walker_off_screen() -> void:
+	make(func(l: Level) -> void:
+		l.floors = [Vector2i(60, 12)]
+		l.walkers = [WalkerSpawn.new(Vector2i(50, 11), WalkerSpawn.Kind.PLAIN)])
+	var start := walker().position
+	await wait(30)
+	check(walker().position == start and not walker().can_process(), "off screen: does not move")
+	level.player.position.x = 50 * Grid.TILE - 150
+	await wait(30)
+	check(walker().can_process() and walker().position.x < start.x, "on screen: starts walking left")
+
+
+func test_walker_stomp_a() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.PLAIN)]))
+	await wait(2)
+	walker().speed = 0.0
+	drop_player(walker().position + Vector2(0, -30))
+	check(await wait_until(func() -> bool: return not walker().visible, 60), "stomped")
+	check(walker().process_mode == Node.PROCESS_MODE_DISABLED, "switched off")
+	check_near(level.player.velocity.y, -227.37, "player bounces")
+	check_equal(level.player.state, Player.State.BOUNCE, "state Bounce")
+	var flattened: WalkerFlattened = level.effects.get_child(0)
+	check(flattened.sprite.texture.resource_path == "res://art/walker_a/sprite_3.png", "flattened sprite")
+	check(flattened.position == walker().position, "at the walker's position")
+	check(level.health == 2, "not hurt")
+	await wait(43)
+	check(not flattened.visible, "hidden 0.7 s later")
+
+
+func test_walker_hurts() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(9, 11), WalkerSpawn.Kind.PLAIN)]))
+	check(await wait_until(func() -> bool: return level.health < 2, 300), "player hurt when a walker walks into it")
+
+
+func test_walker_shell() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.SHELL)]))
+	await wait(2)
+	var shell := walker() as ShellWalker
+	drop_player(shell.position + Vector2(-4, -40))
+	check(await wait_until(func() -> bool: return shell.state == ShellWalker.State.STILL, 60), "still shell")
+	check(shell.visible and shell.can_process() and shell.speed == 0.0, "stays on, speed 0")
+	check(shell.sprite.animation == "shell", "shows sprite_3")
+	check_equal(level.effects.get_child_count(), 0, "no flattened scene")
+	await wait(4)
+	check(shell.state == ShellWalker.State.STILL and level.health == 2, "not kicked or hurt while bouncing off")
+	level.player.position = Vector2(100, 216)
+	var x := shell.position.x
+	await wait(40)
+	check_near(shell.position.x, x, "a still shell does not move")
+	drop_player(shell.position + Vector2(-4, -40))
+	check(await wait_until(func() -> bool: return shell.state == ShellWalker.State.KICKED, 60), "kicked")
+	await updated
+	check_near(shell.velocity.x, 202.5, "player on its left: kicked right")
+	check(level.health == 2, "a kicked shell does not hurt")
+
+
+func test_walker_shell_kick_direction() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.SHELL)]))
+	await wait(2)
+	var shell := walker() as ShellWalker
+	shell.state = ShellWalker.State.STILL
+	shell.speed = 0.0
+	level.player.position.x = shell.position.x + 3
+	shell.stomp()
+	await updated
+	check_near(shell.velocity.x, -202.5, "player on its right: kicked left")
+	shell.state = ShellWalker.State.STILL
+	level.player.position.x = shell.position.x
+	shell.collision_mask = Level.LAYER_LEVEL | Level.LAYER_WALKERS
+	shell.stomp()
+	check_near(shell.speed, 202.5, "player at its x: kicked right")
+
+
+func test_walker_kicked_shell_knocks_out() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(10, 11), WalkerSpawn.Kind.SHELL),
+			WalkerSpawn.new(Vector2i(16, 11), WalkerSpawn.Kind.PLAIN), WalkerSpawn.new(Vector2i(20, 11), WalkerSpawn.Kind.SPIKED)]))
+	await wait(2)
+	var shell := walker(0) as ShellWalker
+	shell.state = ShellWalker.State.STILL
+	level.player.position.x = 100
+	shell.stomp()
+	check(await wait_until(func() -> bool: return not walker(1).visible and not walker(2).visible, 120),
+			"walker A and C knocked out")
+	check(level.effects.get_child(0) is WalkerBonked, "bonked scene")
+	check_near(absf(shell.velocity.x), 202.5, "the shell keeps its speed")
+
+
+func test_walker_still_shell_turns_walkers() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(10, 11), WalkerSpawn.Kind.SHELL),
+			WalkerSpawn.new(Vector2i(16, 11), WalkerSpawn.Kind.PLAIN)]))
+	await wait(2)
+	var shell := walker(0) as ShellWalker
+	shell.state = ShellWalker.State.STILL
+	shell.speed = 0.0
+	var x := shell.position.x
+	check(await wait_until(func() -> bool: return walker(1).speed > 0, 200), "walker A turns at the still shell")
+	check_near(shell.position.x, x, "the shell stays put")
+
+
+func test_walker_c_spike() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.SPIKED)]))
+	await wait(2)
+	walker().speed = 0.0
+	drop_player(walker().position + Vector2(0, -30))
+	check(await wait_until(func() -> bool: return level.health < 2, 60), "player hurt landing on walker C")
+	check(walker().visible and level.player.state != Player.State.BOUNCE, "not stomped, no bounce")
+
+#endregion
+
+
+#region Blocks (breakable-block.md, gift-block.md)
+
+func block(i := 0) -> Block:
+	return level.block_layer.get_child(i)
+
+
+## Jumps the player straight up from a column x.
+func jump_under(x: float) -> void:
+	await settle()
+	level.player.position.x = x
+	press("jump")
+	await wait(30)
+	release("jump")
+
+
+func test_block_breaks() -> void:
+	make(flat(func(l: Level) -> void: l.blocks = [BreakableBlockSpawn.new(Vector2i(10, 8))]))
+	check_equal(block().position, Vector2(180, 144), "position")
+	check(block().collision_layer == Level.LAYER_LEVEL and block().collision_mask == 0, "layers")
+	await jump_under(189)
+	check(not block().visible and block().process_mode == Node.PROCESS_MODE_DISABLED, "broken")
+	var chunks := level.effects.get_children()
+	check_equal(chunks.size(), 4, "four chunks")
+	var ones := chunks.filter(func(c: BlockChunk) -> bool: return c._variant == 1).size()
+	check_equal(ones, 2, "two of each variant")
+
+
+func test_block_chunks() -> void:
+	make(flat(func(l: Level) -> void: l.blocks = [BreakableBlockSpawn.new(Vector2i(10, 8))]))
+	await settle()
+	block().bonk()
+	var c: Array = level.effects.get_children()
+	var centre := Vector2(189, 153)
+	check_equal([c[0].position - centre, c[1].position - centre, c[2].position - centre, c[3].position - centre],
+			[Vector2(-4, -4), Vector2(4, -4), Vector2(-4, 4), Vector2(4, 4)], "centres at the block's centre +- 4")
+	check_equal([c[0].velocity, c[1].velocity, c[2].velocity, c[3].velocity],
+			[Vector2(-67.5, -405), Vector2(67.5, -405), Vector2(-67.5, -270), Vector2(67.5, -270)], "speeds")
+	var flips: Array = []
+	for i in 4:
+		await wait(4)
+		flips.append([c[0].sprite.flip_h, c[0].sprite.flip_v])
+	check_equal(flips, [[true, false], [false, true], [true, true], [false, false]], "spin steps")
+	check(await wait_until(func() -> bool: return not c[0].can_process(), 200), "switches off below the screen")
+
+
+func test_block_edges() -> void:
+	make(flat(func(l: Level) -> void: l.blocks = [BreakableBlockSpawn.new(Vector2i(10, 8)),
+			BreakableBlockSpawn.new(Vector2i(11, 8)), BreakableBlockSpawn.new(Vector2i(16, 8))]))
+	await jump_under(198)
+	check(not block(0).visible and not block(1).visible, "under two blocks: both break")
+	await settle()
+	await jump_under(16 * 18 - 4)
+	check(not block(2).visible, "head 1 px into the block's column: it breaks")
+
+
+func test_block_bonks_walkers() -> void:
+	make(flat(func(l: Level) -> void:
+		l.blocks = [BreakableBlockSpawn.new(Vector2i(14, 9)), BreakableBlockSpawn.new(Vector2i(15, 9)),
+				BreakableBlockSpawn.new(Vector2i(18, 9)), BreakableBlockSpawn.new(Vector2i(19, 9))]
+		l.walkers = [WalkerSpawn.new(Vector2i(15, 8), WalkerSpawn.Kind.SHELL), WalkerSpawn.new(Vector2i(19, 8), WalkerSpawn.Kind.PLAIN)]))
+	await wait(5)
+	walker(0).speed = 0.0
+	walker(1).speed = 0.0
+	walker(1).position.x = 19 * 18 + 9
+	await wait(2)
+	block(2).bonk()
+	check(walker(1).visible, "a walker entirely over the next tile survives")
+	walker(1).position.x = 19 * 18 - 3
+	await wait(2)
+	block(3).bonk()
+	check(not walker(1).visible, "a walker partly over the block dies")
+	block(1).bonk()
+	check(not walker(0).visible, "walker B with its middle over the block dies")
+	var bonked: WalkerBonked = level.effects.get_children().filter(func(n: Node) -> bool: return n is WalkerBonked)[1]
+	check_near(bonked.velocity.y, -227.37, "bonked: 227.37 up")
+	check_near(bonked.velocity.x, 33.75, "moving opposite its facing")
+	check((bonked.get_child(0) as Sprite2D).flip_v, "upside down")
+
+
+func test_gift_block_coin() -> void:
+	make(flat(func(l: Level) -> void: l.blocks = [GiftBlockSpawn.new(Vector2i(10, 8), GiftBlockSpawn.Contents.COIN)]))
+	var gift := block() as GiftBlock
+	check(gift.sprite.texture.resource_path.ends_with("sprite_1.png"), "starts glowing")
+	await settle()
+	gift.bonk()
+	check(gift.used and gift.sprite.texture.resource_path.ends_with("sprite_2.png"), "dimmed")
+	var coin: PoppedCoin = level.block_item_layer.get_child(0)
+	check(coin != null, "a coin pops out into BlockItems")
+	await wait(6)
+	check_near(gift.sprite.position.y, -7.2, "hops 7.2 px", 0.3)
+	await wait(7)
+	check_near(gift.sprite.position.y, 0.0, "back at 0 after 0.213 s")
+	await wait(3)
+	check_near(coin.position.y, 144 - 45, "coin rises 45 px", 0.5)
+	await wait(18)
+	check(not coin.visible, "coin hidden after 0.533 s")
+	gift.bonk()
+	check_equal(level.block_item_layer.get_child_count(), 1, "second hit: no coin")
+	check(gift.collision_layer == Level.LAYER_LEVEL, "still solid")
+
+
+func test_gift_block_hop_not_restarted() -> void:
+	make(flat(func(l: Level) -> void: l.blocks = [GiftBlockSpawn.new(Vector2i(10, 8), GiftBlockSpawn.Contents.DIAMOND)]))
+	await settle()
+	var gift := block() as GiftBlock
+	gift.bonk()
+	await wait(4)
+	gift.bonk()
+	await wait(9)
+	check_near(gift.sprite.position.y, 0.0, "the hop lands on time")
+	check_equal(level.block_item_layer.get_child_count(), 1, "the diamond still comes out")
+
+
+func test_diamond() -> void:
+	make(flat(func(l: Level) -> void: l.blocks = [GiftBlockSpawn.new(Vector2i(10, 10), GiftBlockSpawn.Contents.DIAMOND)]))
+	await settle()
+	block().bonk()
+	await wait(12)
+	check_equal(level.block_item_layer.get_child_count(), 0, "no diamond before the hop ends")
+	await wait(2)
+	var diamond: Diamond = level.block_item_layer.get_child(0)
+	check(diamond != null and diamond.position == Vector2(189, 180), "on top of the block")
+	check(not diamond.is_physics_processing(), "does not move while sliding")
+	await wait(66)
+	check(diamond.is_physics_processing(), "walks after 1.067 s")
+	await wait(3)
+	check_near(diamond.velocity.x, 33.75, "walks right")
+	block().bonk()
+	await updated
+	check(diamond.speed < 0 and diamond.velocity.y < 0, "bumped: hops and turns")
+
+
+func test_diamond_heals() -> void:
+	make(flat(func(l: Level) -> void: l.blocks = [GiftBlockSpawn.new(Vector2i(6 + 4, 10), GiftBlockSpawn.Contents.DIAMOND)]))
+	await settle()
+	block().bonk()
+	await wait(20)
+	level.health = 1
+	level.player.position = Vector2(189, 180)
+	await wait(2)
+	check_equal(level.health, 2, "healed to 2")
+	check(not level.block_item_layer.get_child(0).visible, "diamond hidden")
+
+#endregion
+
+
+#region Contact (player-contact.md, coins.md, spring.md, checkpoint.md, door.md)
+
+func test_contact_coin() -> void:
+	make(flat(func(l: Level) -> void: l.coins = [Vector2i(5 + 2, 11)]))
+	var coin: Coin = level.coin_layer.get_child(0)
+	check(coin.collision_layer == Level.LAYER_PICKUPS and coin.collision_mask == 0, "layers")
+	check(coin.get_signal_connection_list("body_entered").is_empty(), "no body_entered connection")
+	await settle()
+	press("move_right")
+	check(await wait_until(func() -> bool: return not coin.visible, 60), "collected")
+	check(coin.process_mode == Node.PROCESS_MODE_DISABLED, "switched off")
+
+
+func test_contact_two_walkers() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.PLAIN),
+			WalkerSpawn.new(Vector2i(15, 11), WalkerSpawn.Kind.PLAIN)]))
+	await wait(2)
+	walker(0).speed = 0.0
+	walker(1).speed = 0.0
+	walker(1).position.x = walker(0).position.x + 9
+	drop_player(walker(0).position + Vector2(4, -30))
+	check(await wait_until(func() -> bool: return not walker(0).visible and not walker(1).visible, 60), "both flattened")
+	check_equal(level.health, 2, "not hurt")
+
+
+func test_contact_crusher_and_walker() -> void:
+	make(flat(func(l: Level) -> void:
+		l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.PLAIN)]
+		l.crushers = [Vector2i(14, 11)]), true)
+	check(has_error(level, "crusher at (14, 11) overlaps walker"), "can't share a cell")
+	level.free()
+	make(flat(func(l: Level) -> void:
+		l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.PLAIN)]
+		l.crushers = [Vector2i(15, 11)]))
+	await wait(2)
+	walker().speed = 0.0
+	drop_player(Vector2(14 * 18 + 16, 160))
+	check(await wait_until(func() -> bool: return not walker().visible, 200), "walker flattened")
+	check_equal(level.health, 1, "and hurt by the crusher")
+
+
+func test_contact_invincible() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(9, 11), WalkerSpawn.Kind.PLAIN)]))
+	level.player.invincible = true
+	level.player.invincibility_timer.start(100)
+	await wait(5)
+	walker().speed = 0.0
+	level.player.position.x = walker().position.x - 6
+	await wait(30)
+	check_equal(level.health, 2, "invincible: touching a walker does nothing")
+	level.player.invincibility_timer.stop()
+	level.player._on_invincibility_timeout()
+	check(await wait_until(func() -> bool: return level.health < 2, 300), "hurt again once invincibility ends")
+
+
+func test_contact_diamond_and_crusher() -> void:
+	make(flat(func(l: Level) -> void:
+		l.crushers = [Vector2i(14, 9)]
+		l.blocks = [GiftBlockSpawn.new(Vector2i(14, 11), GiftBlockSpawn.Contents.DIAMOND)]))
+	await settle()
+	block().bonk()
+	await wait(16)
+	level.health = 1
+	level.player.position = Vector2(14 * 18 + 9, 190)
+	level.player.velocity = Vector2.ZERO
+	await wait(2)
+	check_equal(level.health, 1, "healed then hurt: survives with 1")
+	check(level.player.process_mode != Node.PROCESS_MODE_DISABLED, "alive")
+
+
+func test_contact_spring() -> void:
+	make(flat(func(l: Level) -> void: l.springs = [Vector2i(14, 11)]))
+	var spring: Spring = level.spring_layer.get_child(0)
+	check_equal(spring.position, Vector2(261, 216), "position")
+	await settle()
+	press("move_right")
+	level.player.position.x = 230
+	check(await wait_until(func() -> bool: return level.player.state == Player.State.SPRING, 60), "launched")
+	release("move_right")
+	var start_y := 216.0
+	var top := start_y
+	var updates := 0
+	while level.player.state == Player.State.SPRING and updates < 100:
+		await updated
+		updates += 1
+		top = minf(top, level.player.position.y)
+	check_near(start_y - top, 176.6, "rises about 176.6 px", 2.0)
+	check_near(updates, 49, "over about 49 updates", 2)
+	check_near(spring.velocity.x, 0.0, "the spring never moves sideways")
+
+
+func test_contact_spring_stomp_order() -> void:
+	make(flat(func(l: Level) -> void:
+		l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.PLAIN)]
+		l.springs = [Vector2i(15, 11)]))
+	await wait(2)
+	walker().speed = 0.0
+	drop_player(Vector2(14 * 18 + 17, 209))
+	check(await wait_until(func() -> bool: return not walker().visible, 60), "walker stomped")
+	check_equal(level.player.state, Player.State.SPRING, "then launched")
+	check_near(level.player.velocity.y, -445.5, "velocity.y -445.5", 10)
+
+
+func test_contact_dies_before_spring_and_checkpoint() -> void:
+	make(flat(func(l: Level) -> void:
+		l.crushers = [Vector2i(14, 11)]
+		l.springs = [Vector2i(15, 11)]
+		l.checkpoints = [Vector2i(13, 11)]))
+	await settle()
+	level.health = 1
+	level.player.position = Vector2(14 * 18 + 2, 216)
+	await wait(2)
+	check(level.player.process_mode == Node.PROCESS_MODE_DISABLED, "dies")
+	check(level.player.state != Player.State.SPRING, "not launched")
+	check(not level.checkpoint_layer.get_child(0).raised, "the checkpoint stays down")
+
+
+func test_springs_fall_and_stack() -> void:
+	make(flat(func(l: Level) -> void:
+		l.springs = [Vector2i(14, 6), Vector2i(14, 3)]
+		l.blocks = [BreakableBlockSpawn.new(Vector2i(20, 10))]
+		l.walkers = [WalkerSpawn.new(Vector2i(17, 11), WalkerSpawn.Kind.PLAIN)]))
+	await wait(120)
+	var lower: Spring = level.spring_layer.get_child(0)
+	var upper: Spring = level.spring_layer.get_child(1)
+	check_near(lower.position.y, 216, "lands on the ground", 0.05)
+	check_near(upper.position.y, 216 - 14, "the upper one stands on the lower one", 1.0)
+
+
+func test_checkpoint() -> void:
+	make(flat(func(l: Level) -> void: l.checkpoints = [Vector2i(10, 11), Vector2i(14, 11)]))
+	var a: Checkpoint = level.checkpoint_layer.get_child(0)
+	var b: Checkpoint = level.checkpoint_layer.get_child(1)
+	check_equal(a.position, Vector2(189, 216), "position")
+	check(a.collision_layer == Level.LAYER_CHECKPOINTS and a.collision_mask == 0, "layers")
+	check(not a.raised and a.sprite.animation == "down", "starts down")
+	await settle()
+	press("move_right")
+	check(await wait_until(func() -> bool: return a.raised, 120), "raised when touched")
+	check_equal(Level.respawn_cell, Vector2i(10, 11), "respawn point")
+	check(a.squash._tween != null and a.squash._tween.is_valid(), "bounces")
+	check(await wait_until(func() -> bool: return b.raised, 120), "second raised")
+	check(not a.raised and a.sprite.animation == "down", "the first goes down")
+	release("move_right")
+	press("move_left")
+	check(await wait_until(func() -> bool: return a.raised, 120), "touching the first again raises it")
+	check(not b.raised, "the second goes down")
+
+
+func test_checkpoint_respawn() -> void:
+	Level.respawn_cell = Vector2i(14, 11)
+	make(flat(func(l: Level) -> void: l.checkpoints = [Vector2i(10, 11), Vector2i(14, 11)]))
+	check_equal(level.player.position, Vector2(261, 216), "the player starts at the checkpoint")
+	check(level.checkpoint_layer.get_child(1).raised and not level.checkpoint_layer.get_child(0).raised,
+			"that checkpoint starts raised")
+	level.on_win()
+	check_equal(Level.respawn_cell, Level.PLAYER_CELL, "a win resets the respawn point")
+
+
+func test_door() -> void:
+	make(flat(func(l: Level) -> void: l.doors = [Vector2i(9, 11)]))
+	var door: Door = level.door_layer.get_child(0)
+	check_equal(door.position, Vector2(162, 198), "position")
+	check(door.collision_layer == Level.LAYER_DOORS and door.collision_mask == 0, "layers")
+	await settle()
+	press("move_right")
+	check(await wait_until(func() -> bool: return get_tree().paused, 200), "touching it wins")
+	check(level.player.visible and level.player.sprite.visible, "player visible")
+
+
+func test_door_variants() -> void:
+	var ones := 0
+	for i in 40:
+		var door: Door = load("res://items/door.tscn").instantiate()
+		door.setup(null)
+		if door.variant == 1:
+			ones += 1
+		door.free()
+	check(ones > 8 and ones < 32, "each variant about half the time (%d of 40)" % ones)
+
+#endregion
+
+
+#region Other enemies (enemy-flyer.md, enemy-leaper.md, enemy-crusher.md, enemy-bar.md)
+
+func test_flyer() -> void:
+	make(flat(func(l: Level) -> void: l.flyers = [FlyerSpawn.new(Vector2i(14, 4), 40.0), FlyerSpawn.new(Vector2i(16, 4), 0.0)]))
+	var flyer: Flyer = level.flyer_layer.get_child(0)
+	var hover: Flyer = level.flyer_layer.get_child(1)
+	check_equal(flyer.position, Vector2(261, 81), "starts at its cell's centre")
+	var ys: Array[float] = []
+	for i in 115:
+		await updated
+		ys.append(flyer.position.y)
+	var bottom := ys.find(ys.max())
+	check_near(bottom + 1, 110, "one-way trip about 1.836 s", 2)
+	check_near(ys.max(), 121, "the other end 40 px below", 0.1)
+	check(hover.position == Vector2(297, 81), "bob 0: hovers")
+	flyer.stomp()
+	var death: EnemyDeath = level.effects.get_child(0)
+	check((death.get_child(0) as Sprite2D).flip_v and (death.get_child(0) as Sprite2D).texture.resource_path.ends_with("flyer/sprite_1.png"),
+			"death scene upside down")
+	await wait(60)
+	check(death.velocity_y <= 202.5 and death.position.x == flyer.position.x, "falls, capped, straight down")
+
+
+func test_leaper() -> void:
+	make(func(l: Level) -> void:
+		l.floors = [Vector2i(30, 12)]
+		l.has_water = true
+		l.leapers = [14])
+	var leaper: Leaper = level.leaper_layer.get_child(0)
+	check_equal(leaper.position, Vector2(261, 261), "behind the water")
+	await updated
+	check_near(leaper.velocity_y, -421.86, "leaps on its first update")
+	var top := 261.0
+	var updates := 1
+	var flips_ok := true
+	while leaper.velocity_y != 0.0 and updates < 200:
+		await updated
+		updates += 1
+		top = minf(top, leaper.position.y)
+		if leaper.sprite.flip_v != (leaper.velocity_y > 0):
+			flips_ok = false
+	check_near(261 - top, 204.39, "leaps 204.39 px", 1.0)
+	check_equal(updates, 132, "back after 132 updates")
+	check_near(leaper.position.y, 261, "exactly on the start point")
+	check(flips_ok, "flip_v follows the direction")
+	check(leaper.wait_timer.time_left >= 0.9 and leaper.wait_timer.time_left <= 3.05, "waits 1 to 3.05 s")
+
+
+func test_crusher() -> void:
+	make(flat(func(l: Level) -> void: l.crushers = [Vector2i(16, 4)]))
+	var crusher: Crusher = level.crusher_layer.get_child(0)
+	await wait(20)
+	check(crusher.state == Crusher.State.WATCH and crusher.position.y == 90, "still while the player is away")
+	level.player.position.x = 16 * 18 + 9 - 12
+	await wait(5)
+	check(crusher.state == Crusher.State.WATCH, "not lined up: still")
+	level.player.position.x = 16 * 18 + 9 - 6
+	await wait(2)
+	check_equal(crusher.state, Crusher.State.FALL, "drops when the player is below")
+	level.player.position.x = 50
+	check(await wait_until(func() -> bool: return crusher.state == Crusher.State.WAIT, 60), "lands and waits")
+	check_near(crusher.position.y, 216, "on the floor", 0.05)
+	await wait(31)
+	check_equal(crusher.state, Crusher.State.RISE, "rises after 0.5 s")
+	var y := crusher.position.y
+	await wait(60)
+	check_near(y - crusher.position.y, 33.75, "at 33.75 px/s", 0.6)
+	check(await wait_until(func() -> bool: return crusher.state == Crusher.State.WATCH, 400), "back to watching")
+	check_near(crusher.position.y, 90, "exactly on the start point")
+
+
+func test_bar() -> void:
+	make(flat(func(l: Level) -> void: l.bars = [BarSpawn.new(Vector2i(14, 5), 2, 0.0, true),
+			BarSpawn.new(Vector2i(20, 5), 0, 0.0, false), BarSpawn.new(Vector2i(17, 2), 1, 0.0, false)]))
+	var bar: Bar = level.bar_layer.get_child(0)
+	check_equal(bar.sprites.size(), 5, "units 2: 5 sprites")
+	check_equal(level.bar_layer.get_child(1).sprites.size(), 1, "units 0: one sprite")
+	check_near(bar.sprites[4].position.length(), 60, "outer ones 60 px out")
+	await wait(60)
+	check_near(rad_to_deg(bar.angle), 105.5, "clockwise: 105.5 after 1 s", 0.01)
+	check_near(rad_to_deg(level.bar_layer.get_child(2).angle), -105.5, "counter-clockwise: -105.5", 0.01)
+	check(bar.sprites.all(func(s: Sprite2D) -> bool: return s.rotation == 0.0), "nothing rotates")
+
+
+func test_bar_hurts() -> void:
+	make(flat(func(l: Level) -> void: l.bars = [BarSpawn.new(Vector2i(4 + 6, 11), 0, 0.0, true)]))
+	await settle()
+	press("move_right")
+	check(await wait_until(func() -> bool: return level.health < 2, 200), "touching a bar hurts")
+
+#endregion

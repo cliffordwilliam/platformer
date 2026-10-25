@@ -494,7 +494,41 @@ func _add_tile_layer(layer_name: String, tile_set: TileSet) -> TileMapLayer:
 
 ## Builds one of everything in the level script's lists.
 func _place_things() -> void:
-	pass
+	for spawn in blocks:
+		if spawn is GiftBlockSpawn:
+			_spawn("res://blocks/gift_block.tscn", spawn.cell, Origin.TOP_LEFT, block_layer, [spawn])
+		else:
+			_spawn("res://blocks/breakable_block.tscn", spawn.cell, Origin.TOP_LEFT, block_layer)
+	for cell in coins:
+		_spawn("res://items/coin.tscn", cell, Origin.TOP_LEFT, coin_layer)
+	for cell in springs:
+		_spawn("res://items/spring.tscn", cell, Origin.FEET, spring_layer)
+	for cell in doors:
+		_spawn("res://items/door.tscn", cell, Origin.TOP_LEFT, door_layer)
+	for cell in checkpoints:
+		_spawn("res://items/checkpoint.tscn", cell, Origin.FEET, checkpoint_layer)
+	for spawn in walkers:
+		var scene: String = ["walker_a", "walker_b", "walker_c"][spawn.kind]
+		_spawn("res://enemies/%s.tscn" % scene, spawn.cell, Origin.FEET, walker_layer, [spawn])
+	for spawn in flyers:
+		_spawn("res://enemies/flyer.tscn", spawn.cell, Origin.CENTRE, flyer_layer, [spawn])
+	for column in leapers:
+		_spawn("res://enemies/leaper.tscn", Vector2i(column, LAST_ROW), Origin.CENTRE, leaper_layer)
+	for cell in crushers:
+		_spawn("res://enemies/crusher.tscn", cell, Origin.FEET, crusher_layer)
+	for spawn in bars:
+		_spawn("res://enemies/bar.tscn", spawn.cell, Origin.CENTRE, bar_layer, [spawn])
+
+
+## The block in a cell, or null; asks the physics engine.
+func block_at(cell: Vector2i) -> Block:
+	var query := PhysicsPointQueryParameters2D.new()
+	query.position = Vector2(cell * Grid.TILE + Vector2i(Grid.HALF_TILE, Grid.HALF_TILE))
+	query.collision_mask = LAYER_LEVEL
+	for hit in get_world_2d().direct_space_state.intersect_point(query):
+		if hit.collider is Block:
+			return hit.collider
+	return null
 
 
 ## Instantiates a scene, places it, sets it up and adds it to its layer.

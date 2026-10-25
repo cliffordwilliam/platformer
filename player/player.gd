@@ -215,7 +215,70 @@ func _touching() -> Array[Node]:
 
 ## Blocks, pickups, enemies, springs, checkpoints, in that order.
 func _check_contact() -> void:
-	pass
+	if is_on_ceiling() and state != State.CLIMB:
+		var rect := box()
+		var row := floori((rect.position.y - 1) / Grid.TILE)
+		for column in range(floori(rect.position.x / Grid.TILE), floori((rect.end.x - 1) / Grid.TILE) + 1):
+			var block := level.block_at(Vector2i(column, row))
+			if block != null:
+				block.bonk()
+
+	var touching := _touching()
+	for thing in touching:
+		if thing is Coin:
+			(thing as Coin).collect()
+		elif thing.get_parent() is Diamond:
+			(thing.get_parent() as Diamond).collect()
+
+	var falling := state == State.FALL
+	var stomped := false
+	var kicked := false
+	var hit := false
+	for thing in touching:
+		if not (thing is Walker or thing is Flyer or thing is Leaper or thing is Crusher or thing is Bar):
+			continue
+		if not thing.can_process():
+			continue
+		var stompable := (thing is Walker and thing is not SpikedWalker) or thing is Flyer or thing is Leaper
+		var harmless := thing is ShellWalker and (thing as ShellWalker).state != ShellWalker.State.WALK
+		if falling and stompable:
+			if thing is ShellWalker and (thing as ShellWalker).state == ShellWalker.State.STILL:
+				kicked = true
+			else:
+				stomped = true
+			thing.stomp()
+		elif not harmless:
+			hit = true
+	if stomped or kicked:
+		velocity.y = -STOMP_BOUNCE_SPEED
+		state = State.BOUNCE
+		_animate(State.FALL)
+		squash.play_bounce()
+	if stomped:
+		level.sounds.play(Sounds.Effect.STOMP)
+	if kicked:
+		level.sounds.play(Sounds.Effect.KICK)
+	if hit and not invincible:
+		if hurt():
+			return
+
+	if state != State.SPRING:
+		for thing in touching:
+			if thing is Spring:
+				(thing as Spring).launch()
+				break
+
+	for thing in touching:
+		if thing is Checkpoint:
+			(thing as Checkpoint).touch()
+
+
+## Launched by a spring: rises high with light gravity.
+func spring_launch() -> void:
+	velocity.y = -SPRING_LAUNCH_SPEED
+	state = State.SPRING
+	_animate(State.FALL)
+	squash.play_bounce()
 
 
 ## Takes one health: an injury, or a death on the last one. Returns true
