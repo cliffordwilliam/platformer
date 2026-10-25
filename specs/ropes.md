@@ -39,8 +39,10 @@ children (`level-layout.md`, Building), so behind everything else:
   decorations), the third kind next to trees and pipes: planted by the same
   roll, sharing one candidate and one cooldown (one screen width) with them.
 - **Every biome** allows it, but only on a floor whose row is **8 or
-  more** (at most 6 rows above the screen's last row, 14). Higher floors
-  never get one: there would be too little room for the ground above.
+  more** (at most 6 rows above the screen's last row, 14). The mass always
+  takes rows 0 and 1, so on a higher floor the rope would be short and
+  the mass would hang low, close enough to the ground to look like
+  something the player could bonk.
 - Only floors that get decorations can get a rope, and when one is
   planted, no plain decoration goes on that tile.
 - Like trees, a rope may cover anything the level placed: it is drawn
@@ -54,32 +56,28 @@ included), each value equally likely.
 **The rope**, in `Ropes`, from the bottom up, in the planting tile's
 column:
 
-- Its height is `randi_range(4, 6)` cells in all, **counting the base and
-  the cap**.
-- The **base** (0, 2) on the cell above the surface tile, the **cap** (0, 0)
-  on the top cell, and a **body** (0, 1) on every cell between (2 to 4).
+- It always reaches all the way up to the main mass: the **base** (0, 2)
+  on the cell above the surface tile, the **cap** (0, 0) on **row 2**,
+  right under the main mass, and a **body** (0, 1) on every cell between.
+  Its height is not random: on a floor on row `r` it is `r - 2` cells,
+  counting the base and the cap (6 cells on row 8, 11 on row 13).
 
-**The main ground mass**: a rectangle whose bottom row is directly above
-the cap, reaching all the way up to **row 0**, the top of the screen.
+**The main ground mass**: a rectangle on **rows 0 and 1**, always 2 tall,
+hanging from the top of the screen right above the cap.
 
 - Width: the rope's column, plus `randi_range(1, 2)` columns to the left,
   plus `randi_range(1, 2)` to the right (3 to 5 wide), like the tree's main
   canopy.
-- Height: from row 0 down to the row above the cap. With a floor on row 8
-  and a 6-cell rope, that is rows 0 and 1; with a floor on row 13 and a
-  4-cell rope, rows 0 to 8.
 
 **Supporting masses**: always two, one on the main mass's left edge and one
-on its right edge, built like the tree's supporting canopies (`trees.md`,
-Building one tree): a random anchor row on that edge column, growing
-toward the farther end of the main mass, `randi_range(2, 3)` wide
-counting the anchor's column (growing outward), `randi_range(1, 3)` tall
-counting the anchor's row.
-- **Then stretched up to row 0:** its bottom row stays where that puts it,
-  and its top becomes row 0, so it hangs from the top of the screen like
-  the main mass. A supporting mass with its own top would look like a
-  ledge to land on. So the mass gets steps on its sides, every one
-  hanging from above.
+on its right edge, each **1 tall, on row 0** only, so the mass gets a step
+on each side, hanging from above. Each is `randi_range(2, 3)` wide,
+counting the edge column it overlaps, growing outward (the left one
+grows left, the right one right), so it sticks out 1 or 2 columns past
+the main mass.
+
+A mass this high, with a rope always reaching it, never hangs low enough
+to look like something the player could bonk into from below.
 
 ## Drawing the ground mass
 
@@ -116,9 +114,11 @@ counting the anchor's row.
 |---|---|
 | Any biome, long flat ground on row 8 or more | Some ropes, never two big decorations (trees, pipes or ropes) closer than 26 tiles |
 | Floor on row 7 or less | Never a rope |
-| Any rope | Base on the cell above a surface tile, cap on its top cell, bodies between; 4 to 6 cells in all |
-| Main mass | Bottom row directly above the cap, reaching row 0; 3 to 5 wide |
-| Supporting masses | One on each side, 2 or 3 wide, reaching from row 0 down, merged with the main mass under one outline; no top edge anywhere below row 0 |
+| Any rope | Base on the cell above a surface tile, cap on row 2, bodies between |
+| Rope on a floor on row 8 | 6 cells in all, rows 2 to 7 |
+| Rope on a floor on row 13 | 11 cells in all, rows 2 to 12 |
+| Main mass | Rows 0 and 1, directly above the cap; 3 to 5 wide |
+| Supporting masses | One on each side, on row 0 only, 2 or 3 wide counting the main mass's edge column, merged with the main mass under one outline |
 | Top of the screen | No outline along row 0 over the mass |
 | Underside | About 1 in 5 cells has an upside-down plant hanging below it; never in the cap's cell |
 | Player jumps into the mass, walkers, anything | Passes through: `collision_enabled` is false |

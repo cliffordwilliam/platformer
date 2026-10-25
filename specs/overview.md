@@ -282,6 +282,13 @@ Godot's own updates, not against copies of the code.
   | Checkpoints (`Area2D`) | `checkpoints` | none |
   | Death and flattened scenes | none | none |
 
+  **In code**, the layers are constants on `Level`, holding each layer's
+  bit (not its number): `LAYER_LEVEL = 1`, `LAYER_WALKERS = 2`,
+  `LAYER_ENEMIES = 4`, `LAYER_PICKUPS = 8`, `LAYER_SPRINGS = 16`,
+  `LAYER_DOORS = 32` and `LAYER_CHECKPOINTS = 64`. Every script sets its
+  layer and mask with these names (`Level.LAYER_LEVEL | Level.LAYER_WALKERS`),
+  never with numbers.
+
   Every collision object sets **both** `collision_layer` and
   `collision_mask` to its row here. Godot's defaults (layer 1 and mask 1,
   that is `level`) are never left as they are: a block left at the default

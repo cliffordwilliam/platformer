@@ -126,6 +126,11 @@ copied unchanged and renamed after what it does:
     sounds are heard alone.
   - A death reloads the level, so after a retry the music starts again
     from the beginning.
+- **Stopped on the way out:** the title and the level stop `Music` and
+  set its `stream` to null in their `_exit_tree`. A track still playing
+  when the game quits is reported as leaked (`ERROR: 2 resources still
+  in use at exit`, tested on 4.7.2), and `overview.md` says to read the
+  output for `ERROR` lines.
 - Only the default `Master` bus is used. There is no volume setting in
   the game.
 

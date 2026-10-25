@@ -117,7 +117,7 @@ player.position.x = clamp(player.position.x,
 | Respawn at a checkpoint less than half a screen from the level end | Camera's right edge at `level_end_x` |
 | Player in the middle of the level | Camera centred on the player |
 | Player walks right past the middle of the screen | Camera moves right with it |
-| Player walks left | Camera stays still |
+| Player walks left, once it is moving left | Camera stays still. (After letting go of right, the player slides on to the right while it slows down, for up to about 0.7 s, and the camera follows that slide: measure from the update `velocity.x` turns negative) |
 | Player walks left into the screen's left edge | Player's origin stays at `camera.left_edge`; `velocity.x` is untouched |
 | Player walks right at the level end | Camera stops with its right edge at `level_end_x`; player's origin stops at `level_end_x`; `velocity.x` is untouched |
 | Any time | `camera.position.x` matches the middle of what the screen shows; camera's top edge at y = 0 |
