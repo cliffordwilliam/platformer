@@ -35,7 +35,9 @@ Coordinates are (column, row):
 - One ladder `TileSet`: one atlas source (Texture Region Size 18 × 18,
   Separation 0, Margins 0), no terrains.
 - Each ladder's top cell gets the cap (0, 0); every other cell gets the
-  body (0, 1). Tiles are chosen by place, like the clouds.
+  body (0, 1). Tiles are chosen by place, by hand: terrains would need a
+  tile for the bottom cell, which has nothing below it, and the ladder
+  sheet has none.
 
 ## Physics
 

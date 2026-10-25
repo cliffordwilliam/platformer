@@ -16,9 +16,10 @@ Coordinates are (column, row):
 | (0, 1) | Elbow, joining **top and left** as drawn |
 | (0, 2) | Horizontal body |
 
-The elbow joining top and right is the same tile mirrored, placed with the
-built-in `TRANSFORM_FLIP_H` flag in `set_cell()`'s alternative tile, like
-the tree branches (`trees.md`).
+The elbow joining top and right is the same tile mirrored: an alternative
+tile of (0, 1), made in code with `create_alternative_tile(Vector2i(0, 1))`
+and `flip_h = true` on its `TileData`, so terrain painting can pick it
+(see Layer). No new art is needed.
 
 ## Layer
 
@@ -26,7 +27,16 @@ the tree branches (`trees.md`).
   the rope layers (`ropes.md`; `level-layout.md`, Building): behind the
   plain decorations, the ground and everything else.
 - One pipe `TileSet`: one atlas source (Texture Region Size 18 × 18,
-  Separation 0, Margins 0), no physics, no terrains.
+  Separation 0, Margins 0), no physics. One terrain set, mode **Match
+  Sides** (`TERRAIN_MODE_MATCH_SIDES`), with one terrain, `pipe`. Peering
+  bits, "joined" meaning that side is set to `pipe`, every other side -1:
+
+  | Tile | Joined on |
+  |---|---|
+  | (0, 0) vertical body | top, bottom |
+  | (0, 1) elbow | top, left |
+  | (0, 1) mirrored (the alternative tile) | top, right |
+  | (0, 2) horizontal body | left, right |
 
 ## Where pipes go
 
@@ -51,17 +61,30 @@ joined at the bottom. All random numbers are whole numbers,
 3. **Width:** `w = randi_range(2, 6)` columns, counting both legs. The
    second leg is `w - 1` columns from the first, in that direction.
 
-Then, with `L` the left leg's column and `R` the right leg's column:
+Then, with `L` the left leg's column and `R` the right leg's column, the
+U is painted as one path with the built-in
+`set_cells_terrain_path(path, 0, 0)`, and Godot picks each tile:
 
-- **Bottom row** (`h - 1`): the elbow mirrored (top and right) in `L`, the
-  elbow as drawn (top and left) in `R`, and the horizontal body in every
-  column between them (none when `w` is 2: the two elbows touch).
-- **Legs:** the vertical body in `L` and in `R`, on every row from 0 down
-  to `h - 2`.
+- **The path**, in order: down the left leg from `(L, -1)` to
+  `(L, h - 1)`, along the bottom row to `(R, h - 1)`, then up the right
+  leg to `(R, -1)`.
+- **Row -1**, just above the screen, is painted too, so row 0 gets a
+  vertical body that goes on upward, never an end: the pipe hangs from
+  beyond the top of the screen, like a rope's mass (`ropes.md`). Row -1 is
+  never seen.
+- **A path, not a shape:** `set_cells_terrain_path` joins each cell only
+  to the cells before and after it in the path. With `set_cells_terrain_connect`,
+  the two legs of a 2-wide pipe, side by side, would be joined to each
+  other on every row.
+- The result: vertical bodies on the legs from row 0 to `h - 2`; on the
+  bottom row the mirrored elbow (top and right) in `L`, the elbow as drawn
+  (top and left) in `R`, and horizontal bodies between them (none when `w`
+  is 2: the two elbows touch). Tested on 4.7.2 with `pipe.png` for 2 × 2,
+  2 × 4 and 4 × 3.
 
-Each tile is chosen by its place in the U, without Godot terrains, like the
-tree canopies. A pipe may reach past the level's left or right edge, or
-behind high ground; that is fine.
+Pipes are at least a screen width apart (the shared cooldown), so two
+pipes never touch on the layer. A pipe may reach past the level's left or
+right edge, or behind high ground; that is fine.
 
 ## Acceptance test
 

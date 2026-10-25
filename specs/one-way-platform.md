@@ -51,8 +51,15 @@ and `res://art/mushroom/mushroom_stalk.png` (1 × 4):
 | (0, 3) | Stalk base, resting on the ground |
 
 The cloud, stone and cap ends are drawn as **left** ends. Right ends use the same
-tiles mirrored, placed with the built-in `TRANSFORM_FLIP_H` flag in
-`set_cell()`'s alternative tile, like the tree branches (`trees.md`).
+tiles mirrored:
+
+- **Cloud and stone right ends** are an alternative tile of the end, made
+  in code: `create_alternative_tile(Vector2i(0, 0))` on the atlas source,
+  then `flip_h = true` on its `TileData`. It is a tile of its own, so
+  terrain painting can pick it (see Cloud). No new art is needed. Tested on
+  4.7.2.
+- **Cap right ends** are placed with the built-in `TRANSFORM_FLIP_H` flag in
+  `set_cell()`'s alternative tile, like the tree branches (`trees.md`).
 
 ## Placing them
 
@@ -95,7 +102,10 @@ One `TileMapLayer`, `Platforms`, right before `MushroomDecorations`,
 behind everything the player touches. One platform `TileSet` holds all
 six images as atlas sources (the two planks, the cloud, the stone, the cap
 and the stalk) (Texture Region Size 18 × 18, Separation 0,
-Margins 0), no terrains.
+Margins 0). It has one terrain set, mode **Match Sides**
+(`TERRAIN_MODE_MATCH_SIDES`: a platform is one row, so only the left and
+right neighbours matter), with two terrains, `cloud` and `stone`. The
+planks and the mushroom tiles have no terrain.
 
 `MushroomDecorations`, right after `Platforms`, holds the plants hanging
 under mushroom caps. It uses the biome's decorations `TileSet`
@@ -108,18 +118,32 @@ cell.
 
 ### Cloud
 
-- Width 1: the one-tile cloud (2, 0).
-- Width 2 or more: the end (0, 0) on the left end, the same end mirrored on
-  the right end, and the body (1, 0) on every cell between them (none for
-  width 2).
+The platform's cells are painted with the built-in
+`set_cells_terrain_connect(cells, 0, cloud)` (`cloud` being the terrain's
+index), and Godot picks each tile from its neighbours. The peering bits,
+"joined" meaning that side is set to `cloud`, every other side -1:
+
+| Tile | Joined on |
+|---|---|
+| (2, 0) one-tile cloud | no side |
+| (0, 0) end | right |
+| (1, 0) body | left, right |
+| (0, 0) mirrored (the alternative tile) | left |
+
+So width 1 gets the one-tile cloud; width 2 the end and the mirrored end;
+wider, the end, bodies, and the mirrored end. Tested on 4.7.2 with the
+cloud sheet for widths 1, 2, 3 and 5.
+
+- Two cloud platforms placed end to end on the same row join into one long
+  cloud: terrain painting treats touching cells as one shape (tested). It
+  plays the same, so that is fine. A cloud next to a platform of another
+  look does not join it (tested with a cloud and a stone end to end: each
+  kept its own ends).
 
 ### Stone
 
-Exactly like the cloud, with the stone sheet:
-
-- Width 1: the one-tile stone (2, 0).
-- Width 2 or more: the end (0, 0) on the left end, the same end mirrored on
-  the right end, and the body (1, 0) on every cell between them.
+Exactly like the cloud, with the stone sheet and the `stone` terrain: the
+same four tiles with the same peering bits.
 
 ### Mushroom
 
@@ -171,6 +195,10 @@ Hanging plants):
   one-tile cloud; the stone end, body and one-tile stone; the two cap ends, the cap middle and the cap centre) gets
   a full `Grid.TILE` × `Grid.TILE` square collision polygon with **one-way
   collision** on: solid only from above. The stalk tiles have no collision.
+- The mirrored cloud and stone ends are alternative tiles with their own
+  `TileData`, and Godot does not copy the collision to a new alternative
+  tile (tested on 4.7.2: it has no polygon). So each gets the same polygon
+  and one-way collision itself.
 - Every look behaves the same: the player rises through a platform from
   below and lands on top of it. Rising into one from below is never a
   ceiling (`is_on_ceiling()` stays false), so there is no bonk. A platform
@@ -193,6 +221,9 @@ Hanging plants):
 | Stone, width 1 | The one-tile stone (2, 0) |
 | Stone, width 2 | End, mirrored end |
 | Stone, width 4 | End, body, body, mirrored end |
+| Two clouds end to end on one row, widths 2 and 3 | Drawn as one cloud 5 wide: end, three bodies, mirrored end |
+| A cloud end to end with a stone | Each keeps its own ends |
+| Player stands on a mirrored cloud or stone end | Stands on it like any other platform tile |
 | Mushroom `PlatformSpawn.new(Vector2i(4, 8), 3)` over ground on row 12 | Cap on row 8, columns 4 to 6: end, centre, mirrored end; stalk bodies on rows 9 and 10 in column 5, base on row 11 |
 | Mushroom width 4 at column 4 | Centre in column 5 (rounded down) |
 | Mushroom width 5 at column 4 | Centre in column 6 |

@@ -53,8 +53,10 @@ inner corners and the second fill):
   1. `Trees`: stumps, trunks and branches
   2. `TreeCanopies`: the main canopies
   3. `TreeCanopiesFront`: the supporting canopies
-- One tree `TileSet` holding the three sheets as atlas sources, no physics,
-  no terrains. All three layers use it.
+- One tree `TileSet` holding the three sheets as atlas sources, no physics.
+  All three layers use it. It has one terrain set, mode Match Corners and
+  Sides, with one terrain, `canopy`, used only by the canopy sheet's tiles
+  (see Canopy tiles).
 - Built in the same pass as the decorations (`level-layout.md`, Building),
   after the ground.
 
@@ -121,16 +123,25 @@ canopy's left edge and one on its right edge. For each side:
 
 ## Canopy tiles
 
-Every canopy is a plain rectangle, so each cell's tile is chosen by its
-place in the rectangle, without Godot terrains (terrain painting would merge
-overlapping canopies and erase their outlines):
+Every canopy is a rectangle painted with the built-in
+`set_cells_terrain_connect(cells, 0, 0)` on its layer, like the ground:
+Godot picks each cell's tile from its neighbours.
 
-| Rectangle | Tiles |
-|---|---|
-| 1 × 1 | (0, 0) |
-| 1 tall, 2+ wide | (1, 0) left end, (2, 0) middles, (3, 0) right end |
-| 1 wide, 2+ tall | (0, 1) top, (0, 2) middles, (0, 3) bottom |
-| 2+ wide, 2+ tall | The 3 × 3: (1, 1) top-left, (2, 1) top, (3, 1) top-right, (1, 2) left, (2, 2) fill, (3, 2) right, (1, 3) bottom-left, (2, 3) bottom, (3, 3) bottom-right |
+- **Peering bits:** the canopy sheet has the solids' layout without the
+  inner corners and the second fill, so its 16 tiles take the same peering
+  bits as those tiles in `level-tiles.md` (Terrains). `Tiles` writes that
+  table once and uses it for both sheets.
+- **Why the outlines stay apart:** terrain painting merges touching cells
+  on one layer into one shape. No two canopies on one layer ever touch:
+  the main canopies are on `TreeCanopies` and the supporting ones on
+  `TreeCanopiesFront`; a tree's two supporting canopies are on opposite
+  sides of a main canopy at least 3 wide; and trees are at least 26
+  columns apart. So each canopy keeps its own outline, and a supporting
+  canopy is drawn in front of its main canopy with its own.
+- Tested on 4.7.2 with `tree_canopy.png`: rectangles 1 × 1, 3 × 1, 1 × 4,
+  2 × 2, 5 × 3 and 4 × 5 came out exactly as by place: (0, 0) alone; (1,
+  0), (2, 0), (3, 0) for one row; (0, 1), (0, 2), (0, 3) for one column;
+  the 3 × 3's corners, edges and fill for the rest.
 
 A tree may reach above the top of the screen. That is fine.
 

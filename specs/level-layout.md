@@ -77,10 +77,10 @@ func layout() -> void:
 	checkpoints = [Vector2i(25, 8)]
 ```
 
-- `biome` sets `Ground`'s, `GroundPieces`' and `RopeCeilings`' `tile_set`
-  to that biome's `TileSet` (`level-tiles.md`), `Decorations`',
-  `GroundPieceDecorations`', `RopeCeilingDecorations`' and
-  `MushroomDecorations`' `tile_set` to
+- `biome` sets `Ground`'s, every ground piece's (`Piece<n>`) and
+  `RopeCeilings`' `tile_set` to that biome's `TileSet` (`level-tiles.md`),
+  `Decorations`', every `Piece<n>Decorations`', `RopeCeilingDecorations`'
+  and `MushroomDecorations`' `tile_set` to
   that biome's decorations `TileSet` (see Decorations), and the
   `Background`'s picture (`background.md`).
 - `Level._ready()` calls `layout()`, adds the start and end floors,
@@ -398,8 +398,9 @@ whole level exists.
       (`TileMapLayer`s, see `one-way-platform.md` and `ladder.md`)
    7. `Ground` (`TileMapLayer`)
    8. `Spikes` (`TileMapLayer`, see Spikes)
-   9. `Waterfalls`, then `GroundPieces`, then `GroundPieceDecorations`
-      (`TileMapLayer`s, see Decorations, Ground pieces)
+   9. `Waterfalls` (`TileMapLayer`), then `GroundPieces` (`Node2D`
+      holding two `TileMapLayer`s per piece, see Decorations, Ground
+      pieces)
    10. `BlockItems` (`Node2D`): empty at the start; the coins and diamonds
        that come out of gift blocks, drawn behind every block
    11. `Blocks` (`Node2D`): the blocks, in list order
@@ -583,39 +584,37 @@ it looks like ground but nothing touches it.
   join between the two floors and is 2 or more wide.
 - **Shape:** a rectangle from the start row down to row 14, between the
   two picked columns (both included).
-- **Tiles:** the biome's solid tiles (`level-tiles.md`), chosen by each
-  cell's place in the rectangle, without terrains, like the tree canopies
-  (`trees.md`, Canopy tiles): terrain painting would merge a piece into its
-  neighbours and erase its outline.
-  - 2+ tall: (1, 1) top-left, (2, 1) top, (3, 1) top-right, (1, 2) left,
-    the fill in the middle, (3, 2) right, (1, 3) bottom-left, (2, 3)
-    bottom, (3, 3) bottom-right. Each fill cell is (2, 2) or (4, 1), each
-    equally likely, picked per cell, like the ground's two fills.
-  - 1 tall (start row 14): (1, 0) left end, (2, 0) middles, (3, 0) right
-    end.
-- **Layer:** its own `TileMapLayer`, `GroundPieces`, right after
-  `Waterfalls` (see Building): in front of the ground and the waterfalls,
-  behind the water and everything placed. It uses the level's biome
-  `TileSet`, but with `collision_enabled = false`, so the tiles' collision
-  shapes are not made: nothing collides with it.
-- **Overlaps:** pieces of neighbouring pairs can overlap (both can use the
-  middle floor's columns). Pieces are drawn in floor order with
-  `set_cell()`, so a later piece covers the earlier one and keeps its whole
-  outline: it looks like a ledge in front of the other.
+- **One layer per piece:** every piece gets its own `TileMapLayer`, so
+  each keeps its own outline. Pieces of neighbouring pairs can overlap
+  (both can use the middle floor's columns); on one shared layer, terrain
+  painting would merge them into one shape.
+  - `GroundPieces` (see Building) is a `Node2D` holding, for each piece in
+    floor order, a layer named `Piece<n>` and right after it a layer named
+    `Piece<n>Decorations` (see Decorations on top), `<n>` counting from 0.
+  - Godot draws later children on top, so a later piece is drawn in front
+    of the earlier one, outline and decorations included: it looks like a
+    ledge in front of the other. Nothing is erased or drawn over by hand.
+  - Each `Piece<n>` uses the level's biome `TileSet`, with
+    `collision_enabled = false`, so the tiles' collision shapes are not
+    made: nothing collides with it.
+- **Tiles:** the piece's rectangle is painted with the built-in
+  `set_cells_terrain_connect(cells, 0, 0)` on its own layer, like the
+  ground (`level-tiles.md`, Terrains): Godot picks the corners, edges and
+  ends and mixes the two fills. Tested on 4.7.2 with the ground sheet:
+  rectangles 1 × 1, 3 × 1, 1 × 4, 2 × 2, 5 × 3 and 4 × 5 all came out with
+  the right outline tile in every cell.
 - **Decorations on top:** each piece gets plain decorations like a floor
   (see Placement above): every cell of its top row has a **20 %** chance
   (`randf() < 0.2`) of one of the biome's decorations, picked with
   `randi_range`, in the cell directly above. Plain decorations only: no
   waterfalls and no big decorations. Like the floors, a piece whose top
   row is 14 or more gets none, or 13 or more when `has_water` is on.
-  - They go in their own `TileMapLayer`, `GroundPieceDecorations`, right
-    after `GroundPieces`, using the biome's decorations `TileSet`. (The
-    plain `Decorations` layer is behind the ground, where these would be
-    hidden.)
-  - When a later piece is drawn, it first erases the earlier pieces'
-    decorations in every cell its rectangle covers
-    (`GroundPieceDecorations.erase_cell()`), so a decoration never floats
-    in front of a piece drawn over it.
+  - They go in the piece's own `Piece<n>Decorations` layer, using the
+    biome's decorations `TileSet` (a `TileMapLayer` holds one `TileSet`, so
+    a piece and its decorations need a layer each). The plain
+    `Decorations` layer is behind the ground, where these would be hidden.
+  - A later piece's layers come after them, so a later piece drawn over an
+    earlier piece's decoration covers it.
   - Over the lower floor's columns, the cell above a piece is that floor's
     surface row, so a decoration there is drawn in front of the floor's
     top tile, never above its surface line.
@@ -835,9 +834,10 @@ may go anywhere.
 | A pair where either floor is 1 wide | Never a piece |
 | A pair with a gap, or with a floor on row 14 | Never a piece |
 | A ground piece | Drawn in front of the ground and waterfalls, behind the water, blocks, enemies and the player; nothing collides with it (`collision_enabled` is false) |
-| Two overlapping pieces | The later one is drawn whole, outline included, over the earlier one |
+| Two overlapping pieces | Each on its own layer; the later one is drawn whole, outline included, over the earlier one |
+| A level with 3 pieces | `GroundPieces` holds `Piece0`, `Piece0Decorations`, `Piece1`, `Piece1Decorations`, `Piece2`, `Piece2Decorations`, in that order |
 | A long ground piece | About 1 in 5 cells of its top row has a plain decoration above it, from the level's biome, drawn in front of the ground |
-| A later piece drawn over an earlier piece's decoration | That decoration is gone |
+| A later piece drawn over an earlier piece's decoration | That decoration is hidden behind the later piece |
 | A piece whose top row is 14 (or 13 with water) | No decorations on it |
 | `has_water` off, a 3-column gap | A spike tile on row 13 of each of the 3 columns; nothing else in them |
 | Any spike | Spikes drawn from y 248 to 257: their base on the death line and the screen's bottom edge |
@@ -920,7 +920,7 @@ may go anywhere.
 | A scene added without `setup()` | Stops at its `_ready` with "setup() not called" |
 | A coin pops out of a gift block | The coin is in `BlockItems`, drawn behind the block |
 | An enemy is stomped | Its death scene is in `Effects`, drawn in front of the water |
-| `biome` changed to `GRASS` | `Ground`, `GroundPieces` and `RopeCeilings` use the grass `TileSet`; `Decorations`, `GroundPieceDecorations` and `RopeCeilingDecorations` use the grass decorations `TileSet`; the background is `res://art/backgrounds/sprite_3.png` |
+| `biome` changed to `GRASS` | `Ground`, every `Piece<n>` and `RopeCeilings` use the grass `TileSet`; `Decorations`, every `Piece<n>Decorations` and `RopeCeilingDecorations` use the grass decorations `TileSet`; the background is `res://art/backgrounds/sprite_3.png` |
 | Same row, 5-tile gap | Jump check passes |
 | Same row, 6-tile gap | The build stops with an error naming the floor; in a snapshot, a red marker instead |
 | Two failing jumps in one level | Both in the errors, printed in one run |

@@ -101,6 +101,9 @@ first.
 | (4, 3) inner corner | all except top-right |
 | (5, 3) inner corner | all except top-left |
 
+- This table is written once in `Tiles` and also used by the tree canopy
+  sheet, which has the same layout without the inner corners and the
+  second fill (`trees.md`, Canopy tiles).
 - The two fills, (2, 2) and (4, 1), have the same peering bits, so terrain
   painting picks between them. Both keep the default `probability` of 1.0,
   so each is used about half the time.

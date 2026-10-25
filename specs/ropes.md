@@ -83,9 +83,10 @@ counting the anchor's row.
 
 ## Drawing the ground mass
 
-- Unlike the tree canopies, the main and supporting masses are **one
-  shape with one outline**: all their cells are painted
-  together with the built-in `set_cells_terrain_connect(cells, 0, 0)`
+- Unlike a tree's canopies, which are on two layers so each keeps its own
+  outline (`trees.md`), the main and supporting masses are **one
+  shape with one outline**: all their cells are painted on one layer,
+  together, with the built-in `set_cells_terrain_connect(cells, 0, 0)`
   (`level-tiles.md`, Terrains), which gives the merged shape its edges,
   corners and inner corners, and mixes the two fills.
 - The mass continues off the top of the screen: for every column that has
