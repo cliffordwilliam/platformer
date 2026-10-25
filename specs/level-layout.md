@@ -168,9 +168,12 @@ silent mistake.
 
 - **Only choices that matter:** a spawn holds only what changes how the
   level plays. A look that changes nothing (a gift block's, a door's, a
-  platform's) is never written: the level picks it at random at build
-  time, so the level script only decides things like what a gift block
-  holds or which kind of walker goes where.
+  platform's) is never written: it is picked at random at build time, by
+  the thing itself (a gift block or a door picks its own in `setup()`,
+  `gift-block.md`, `door.md`), or by the level root for a platform, which
+  is only tiles, with no node of its own (`one-way-platform.md`). So the
+  level script only decides things like what a gift block holds or which
+  kind of walker goes where.
 - **Blocks:** `BlockSpawn` is `@abstract` and holds only `cell`.
   `BreakableBlockSpawn` and `GiftBlockSpawn` extend it, so both kinds go in
   the one typed `Array[BlockSpawn]`, and the level builds each with the
@@ -216,9 +219,13 @@ fields (`floors`, `has_water`, the lists), never built nodes or physics.
   yet. The run exits with **code 1**, and each message shows in the output
   as an `ERROR:` line, followed by the line of the script that pushed it.
   Without this, a run always exits with code 0 (`overview.md`).
-- The jump check (see Jump check) appends to the same `errors` at the end
-  of building, and is handled the same way, except in a snapshot, where it
-  never quits (see Jump check).
+- **The jump check** (see Jump check) is the last check `_check_layout()`
+  runs, and only when every other check found nothing: it needs valid
+  floors and platforms. It reads only `floors` and `platforms`, so it
+  needs nothing built either, and a level whose jumps fail is never built,
+  like a level with any other error. The one exception is a snapshot,
+  which still builds a level whose only errors are failing jumps, to show
+  where they fail, and then exits with code 1 (see Jump check).
 
 The checks:
 
@@ -245,7 +252,8 @@ The checks:
   Below it, a thing would be under the screen, or behind the water where
   the player could stand on it in the water or never reach it. The
   message names the thing and the line, e.g. `"coin at (20, 13) is below
-  the gap line (row 13)"`. Above the screen (negative rows) is allowed.
+  the gap line (row 13)"`. Above the screen (negative rows) is allowed,
+  except for walkers and springs (below).
   Leapers are written as columns, not cells, so this never applies to
   them: they always sit on row 14, behind the water (`enemy-leaper.md`).
 - **`platforms`:** every width is 1 or more, like the floors.
@@ -259,6 +267,11 @@ The checks:
 - **`blocks`:** a gift block holding a diamond is on row 1 or more. On
   row 0, the cell its diamond comes out into is above the screen, where
   the diamond's enabler would switch it off for good.
+- **`walkers` and `springs`:** each on row 0 or more. On a negative row
+  its sprite is wholly above the screen, and the camera never moves up,
+  so its enabler would never switch it on: it would hang there forever,
+  doing nothing (`enemy-walker.md`, `spring.md`). The message names the
+  thing, e.g. `"spring at (20, -1) is above the screen"`.
 - **`leapers`:** only allowed when `has_water` is on (a leaper always
   leaps out of the water). Water is not turned on by the leapers: it also
   moves the gap line and swaps the spikes for water, so the level script
@@ -401,8 +414,9 @@ whole level exists.
    stops while the game is paused, children included, and carries on
    after. As the scene being played it makes no difference. Then it calls
    `layout()`, adds the start and end floors (see Floors), and checks the
-   layout (see Checking the layout). With any errors it stops there:
-   nothing is built.
+   layout (see Checking the layout), the jump check included. With any
+   errors it stops there: nothing is built (in a snapshot whose only
+   errors are failing jumps, it builds anyway, see Jump check).
 2. Creates its children **in this order**. Godot draws later children on
    top, like layers in a drawing program, so no `z_index` is needed:
    1. `Background` (`Parallax2D`, see `background.md`), drawn behind
@@ -455,9 +469,7 @@ whole level exists.
       (`Level.show_guides` on): see Snapshot.
    4. if `has_water`, the water (see Water); if not, the spikes (see Spikes)
 4. Sets the starting positions (`camera.md`, Starting position).
-5. Runs the jump check (see Jump check), then stops on any errors it
-   found.
-6. Starts the level: pauses the game and opens the iris
+5. Starts the level: pauses the game and opens the iris
    (`game-flow.md`, Starting a level).
 
 - So the leaper is in front of the waterfalls but behind the water, and a
@@ -590,10 +602,10 @@ ground's fill where two floors meet, with its own outline. Purely visual:
 it looks like ground but nothing touches it.
 
 - **Which floors:** every floor except the first, each paired with the floor
-  before it, end floor included. A pair can get a piece only if both
-  floors are **2 or more** wide, and the start row below is 14 or less (so
-  a pair with a gap, or with a floor on row 14, never gets one: there is
-  no room on screen).
+  before it, end floor included. A pair can get a piece only if
+  **neither floor is a gap** (any gap, with or without water), both floors
+  are **2 or more** wide, and the start row below is 14 or less (so a pair
+  with a floor on row 14 never gets one: there is no room on screen).
 - **Chance:** each such pair gets a piece **half** the time
   (`randf() < 0.5`). Not seeded, like the decorations.
 - **Start row:** one row below the **lower** of the two surfaces:
@@ -709,17 +721,18 @@ godot --path . --write-movie snapshots/level_1_page.png res://tools/snapshot.tsc
   its build (see Building, step 1), so it does not inherit the snapshot's
   `ALWAYS`.
 - **Pages step by whole tiles:** page `p` puts the camera's left edge at
-  column `25 * p` (x = 450 × p). A screen is 25.5 columns wide, so each
+  column `25 * p` (x = `25 * p * Grid.TILE`). A screen is 25.5 columns wide, so each
   page overlaps the next by half a column. The camera's right edge is still
   clamped to `level_end_x`, like in the game, so the last page shows the
   level's last screen.
 - **The last page** is the first one whose screen reaches the level's
-  end: `last = ceili((level_end_x - Screen.width) / 450.0)`, 0 or more. A
+  end: `last = ceili((level_end_x - Screen.width) / float(25 * Grid.TILE))`, 0 or more. A
   level one screen wide has pages 0 and 1; a level 255 columns wide has
   pages 0 to 10.
 - **One page per frame:** each `_process`, it puts the camera on page
   `frame` (counting its own frames from 0), and on the last page it also
-  calls `get_tree().quit()`. Movie Maker draws each frame after that
+  calls `get_tree().quit(1 if not level.errors.is_empty() else 0)`: code 1
+  when the level's jumps failed (see Jump check), 0 otherwise. Movie Maker draws each frame after that
   frame's `_process`, so frame `n` shows page `n`, and `quit()` lets the
   last frame finish, so the last page is written once, with no extra
   frame. Tested on 4.7.2 with the game's window settings: three pages
@@ -755,7 +768,8 @@ signal of `Guides` and draws with `guides.draw_line()` and the like.
   every floor, start and end floors included, a yellow vertical line on
   its left edge (x = its first column × `Grid.TILE`) over rows 0 to 14,
   and next to it, at the top of the cell above its surface (row
-  `mini(row, 13) - 1`, so a gap's label is on row 12, on screen), its name
+  `row - 1`; a gap's label goes on row 12 instead, so it is on screen),
+  its name
   and first column in the same font, in yellow: `[3] col 14` for
   `floors[3]` starting in column 14, `start` and `end` for the added
   floors. The index is the one error messages use (see Floors).
@@ -787,7 +801,8 @@ again.
 
 ## Jump check
 
-At the end of building, every run, the level root checks that the level
+Before anything is built, as the last of the layout checks (see Checking
+the layout), every run, the level root checks that the level
 can be crossed from start to finish: from everything the player can stand
 on, there is a way onward to the right.
 
@@ -806,11 +821,15 @@ on, there is a way onward to the right.
   next standable one in `floors`, which runs left to right, skipping gaps)
   and the first platform
   ahead of it (the one with the leftmost left edge; `platforms` can be in
-  any order, and on a tie the one listed first). A thing with nothing ahead
-  of it (the end floor, or a platform reaching the level's end) needs no
-  check.
+  any order, and on a tie the one listed first). Only the end floor has
+  nothing ahead of it, and it needs no check: platforms can't reach into
+  the flag area, so the end floor is ahead of every platform.
 - **A standable thing passes** if the player can get onto at least one of
   its targets.
+- **Only those two targets are tried, on purpose.** So a level that could
+  be crossed can still fail: an unreachable platform just ahead hides a
+  reachable one further on. That is intended, to keep the check simple:
+  move or remove the platform.
 - This is enough for the whole level: if every standable thing passes,
   then from wherever the player stands, a chain of jumps, each ending
   further right, leads to the end floor.
@@ -821,7 +840,8 @@ on, there is a way onward to the right.
   (the centre of its feet, as in `camera.md`) after every update, as
   distance to the right and height above the take-off, until the arc has
   dropped `Screen.height` below the take-off (nothing standable is lower).
-  It uses the player's constants, never a copied table of results, so it
+  It uses the player's constants (`const`s on `Player`, read from the
+  class: no player is built yet), never a copied table of results, so it
   stays right if a number is tuned. The arc is the same from every
   take-off, so it is simulated only once.
 - **Reach at a distance `d`** to the right of the take-off:
@@ -847,11 +867,14 @@ on, there is a way onward to the right.
   index, with its right edge's cell, e.g.
   `"floors[3] (columns 14 to 16, row 9): no jump onward from (16, 9)"`.
   So one run shows everything to fix, printed and stopped the same way as
-  the layout errors (see Checking the layout). The level is already built
-  here, so one more frame runs before the quit, which is harmless.
-- **In a snapshot** (`Level.show_guides` on) the check does not stop the
-  build or quit: the messages are still printed, and it draws a red marker at the right edge of each failing thing
-  instead (see Snapshot), so the failures can be seen in place.
+  the layout errors (see Checking the layout): nothing is built.
+- **In a snapshot** (`Level.show_guides` on), failing jumps alone do not
+  stop the build: the messages are still printed with `push_error()`, the
+  level is built, and a red marker is drawn at the right edge of each
+  failing thing (the check keeps those cells for the guides, see Guides),
+  so the failures can be seen in place. The snapshot still writes every
+  page, then exits with **code 1** (see Snapshot), so the run shows it
+  failed. Any other error stops a snapshot before building, as usual.
 - Ladders (`ladder.md`) are not part of the check, and a ladder's top is
   not a standable thing here: every level must be crossable by jumping
   alone.
@@ -904,6 +927,7 @@ may go anywhere.
 | Many builds of the same level | About half of the allowed pairs get a piece |
 | A pair where either floor is 1 wide | Never a piece |
 | A pair with a gap, or with a floor on row 14 | Never a piece |
+| A pair where either floor is a gap, with or without water (for example a gap on row 13 with water) | Never a piece |
 | A ground piece | Drawn in front of the ground and waterfalls, behind the water, blocks, enemies and the player; nothing collides with it (`collision_enabled` is false) |
 | Two overlapping pieces | Each on its own layer; the later one is drawn whole, outline included, over the earlier one |
 | A level with 2 pieces | `GroundPieces` holds `Piece0`, `Piece0Waterfalls`, `Piece0Decorations`, `Piece1`, `Piece1Waterfalls`, `Piece1Decorations`, in that order |
@@ -929,6 +953,8 @@ may go anywhere.
 | `has_water` off, a block or coin on row 14 | Allowed |
 | `has_water` off, anything placed on row 15 or lower | The build stops with an error: it is below the gap line (row 15) |
 | A coin on row -1, above the screen | Allowed |
+| A walker or a spring on row -1 | The build stops with an error: it is above the screen |
+| A walker or a spring on row 0 | Allowed |
 | `has_water` on, leapers | Allowed: they are columns, always on row 14 |
 | Leaper rising from water | In front of waterfalls, behind the water |
 | Any `floors` | `level_end_x` = sum of widths × `Grid.TILE` |
@@ -947,6 +973,7 @@ may go anywhere.
 | Snapshot of a level 26 columns wide | Pages 0 and 1 |
 | Snapshot, any floor | A yellow line on its left edge and its label, e.g. `[3] col 14`, `start` or `end`, in the cell above its surface |
 | Snapshot, a gap | Its label on row 12 |
+| Snapshot, `has_water` off, a floor on row 14 | Its label on row 13, the cell above its surface |
 | Normal run | No floor labels |
 | Coin at cell (8, 6) | `position` (144, 108) |
 | Walker at cell (8, 10) | `position` (153, 198): feet on top of row 11 |
@@ -980,13 +1007,13 @@ may go anywhere.
 | The example level above (26 written columns, 43 in all) | Written floors in columns 7 to 32; end floor in columns 33 to 42; flag in column 33, x = 594; no errors |
 | A checkpoint with a floor's surface cell or a platform cell under it | Allowed |
 | A checkpoint over a gap, over air, or over a block | The build stops with an error naming the checkpoint |
-| A checkpoint with anything placed in its cell or the cell above | The build stops with an error naming both |
+| A checkpoint with anything placed in its cell or the cell above (other than a bar, flyer or leaper) | The build stops with an error naming both |
 | A walker or crusher on a ground cell or a block's cell | The build stops with an error naming both |
-| Walker B with ground or anything placed to its left, right, top-left, top or top-right | The build stops with an error naming both |
+| Walker B with ground or anything placed (other than a bar, flyer or leaper) to its left, right, top-left, top or top-right | The build stops with an error naming both |
 | A walker A or C next to ground, in a free cell | Allowed |
 | `Kind.PLAIN`, `Kind.SHELL`, `Kind.SPIKED` walkers | Walker A, B and C, every build; A and C take one cell, B its six |
 | Any gift block | Look A, B or C, each equally likely, picked at build time; `GiftBlockSpawn` has no look to set |
-| A gift block holding a diamond, with ground, a block or anything placed in the cell above it | The build stops with an error naming both |
+| A gift block holding a diamond, with ground, a block or anything placed (other than a bar, flyer or leaper) in the cell above it | The build stops with an error naming both |
 | A gift block holding a coin, with a block in the cell above it | Allowed |
 | A gift block holding a diamond on row 0 | The build stops with an error |
 | A spring on ground, a block, a coin or a walker's cell | The build stops with an error naming both |
@@ -1006,14 +1033,17 @@ may go anywhere.
 | An enemy is stomped | Its death scene is in `Effects`, drawn in front of the water |
 | `biome` changed to `GRASS` | `Ground`, every `Piece<n>` and `RopeCeilings` use the grass `TileSet`; `Decorations`, every `Piece<n>Decorations`, `RopeCeilingDecorations` and `MushroomDecorations` use the grass decorations `TileSet`; the background is `res://art/backgrounds/sprite_3.png` |
 | Same row, 5-tile gap | Jump check passes |
-| Same row, 6-tile gap | The build stops with an error naming the floor; in a snapshot, a red marker instead |
+| Same row, 6-tile gap | The build stops with an error naming the floor, and nothing is built; in a snapshot, the level is built with a red marker there, every page is written, and the run exits with code 1 |
 | Two failing jumps in one level | Both in the errors, printed in one run |
 | Next floor 4 rows higher, no gap | Passes |
 | Next floor 5 rows higher, no gap | Fails |
 | Next floor 1 column wide, same row, 1-tile gap | Passes (the full-speed jump flies over it, but would land past its left edge) |
 | Snapshot | Grid and red markers drawn in front of the ground, blocks, water and everything else in the level |
 | Same row, 7-tile gap, with a 3-wide platform on that row starting 3 tiles into the gap | Passes: the first floor reaches the platform, the platform reaches the next floor |
-| The same without the platform | Fails on the first floor: the build stops; in a snapshot, a red marker there |
+| The same without the platform | Fails on the first floor: the build stops; in a snapshot, a red marker there and exit code 1 |
+| A high platform just ahead that can't be reached, and a reachable one starting further on | Fails: only the first platform ahead is tried (intended) |
+| A level with a coin in the start area and a failing jump | Only the coin's error: the jump check runs only when every other check passed |
+| Failing jumps, in a level under the test runner | Nothing is built; the messages are in the level's `errors` |
 | A gap only a spring can get past | Fails: springs are not part of the check |
 | A row of gift blocks just above a gap's take-off, low enough to cut the jump short | Passes: blocks are not part of the check |
 | A platform 4 rows above a floor's right edge, starting left of it and ending past it | The floor passes: the player jumps up through the platform and lands on it |

@@ -16,7 +16,8 @@ different, purely visual thing: see `gift-block.md`.)
 - Placed from the level script's `coins` cells, in the `Coins` layer node
   (`level-layout.md`, Placing things). With its top-left origin, a coin
   always fills exactly one cell, which it shares with nothing: not the
-  ground, a block or anything else placed (checked before the build,
+  ground, a block or anything else placed, bars, flyers and leapers aside
+  (checked before the build,
   `level-layout.md`, Occupied cells). A coin is not
   a `Block`, so `block_at` never returns one.
 - Collision box 12 × 12 at x 3, y 3 in the image; origin top-left (0, 0)

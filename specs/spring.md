@@ -28,7 +28,9 @@ launched high into the air. Read `overview.md`, `player-movement.md` and
   (`cell_to_position(cell, Origin.FEET)`).
 - Each in the `Springs` layer node. Checked before the build like the
   coins: between the start and the flag, and its starting cell shared with
-  nothing (`level-layout.md`, Occupied cells).
+  nothing (`level-layout.md`, Occupied cells). It is on row 0 or more:
+  above the screen it would never switch on, so the layout check forbids
+  it (`level-layout.md`, Checking the layout).
 - A spring never runs out: it works every time.
 
 ## Falling
@@ -105,7 +107,8 @@ coins up high.
 | Player touches the spring again later | Launched again: it never runs out |
 | Spring state hits a ceiling or a block | Stops rising (Fall); a block from below is bonked |
 | Walker or diamond walks into a spring | Passes through; nothing happens |
-| Spring on ground, a block or anything placed | The build stops with an error naming both |
+| Spring on ground, a block or anything placed (other than a bar, flyer or leaper) | The build stops with an error naming both |
+| Spring on row -1 | The build stops with an error: it is above the screen |
 | Spring placed in the air | Falls (gravity 965.04, capped at 202.5) and lands on the ground, block or platform below; plays the landing squash |
 | The breakable block under a spring breaks | The spring falls through where the block was |
 | The gift block under a spring is hit | Nothing happens to the spring |

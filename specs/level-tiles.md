@@ -58,7 +58,8 @@ first.
   (`add_source()`), so its `TileData` knows the `TileSet`'s physics layers
   and terrains. Only the listed tiles are made: empty spots stay empty.
 - The physics layer has `collision_layer` = **`level`**, the layer the
-  player, walkers and crusher collide with, and `collision_mask` = none:
+  player, walkers, the crusher, the diamond and springs collide with, and
+  `collision_mask` = none:
   the tiles are collided with and scan nothing themselves.
 
 ## Terrains (autotiling)
@@ -120,6 +121,7 @@ first.
 | Paint a 1 × 4 pillar | Pillar top, two middles, bottom |
 | Paint a 4 × 1 ledge | Left end, two middles, right end |
 | Paint one tile alone | The single block (0, 0) |
-| Paint an L-shape | An inner corner where the two arms meet |
+| Paint an L-shape with arms 2 or more tiles thick | An inner corner where the two arms meet |
+| Paint an L-shape with arms 1 tile thick | No exact tile where the arms meet: Godot picks the closest one, which is allowed |
 | Player stands on, walks into and jumps into any tile | Blocked from every side |
 | Grass and desert `TileSet`s | Same tiles, collision and peering bits as snow; only the texture differs |

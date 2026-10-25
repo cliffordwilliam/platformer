@@ -170,7 +170,9 @@ same four tiles with the same peering bits.
 - It stops at the first cell that is **ground** (any floor, gaps included:
   a gap's row is still where its surface is, even off screen) or **another
   platform**, whatever that platform's look. The stalk never paints over
-  another platform.
+  another platform. Anything else placed under the cap (a block, a
+  ladder, a door, a coin...) does not stop it: the stalk runs down behind
+  it, which is fine, since the stalk is purely visual.
 - The last stalk cell, the one just above where it stops, is the **base**
   (0, 3). Every cell above that is a stalk body, variant 1 or 2
   (`randi_range(1, 2)`), picked per cell.

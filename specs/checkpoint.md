@@ -38,7 +38,16 @@ The flag images are 18 × 257: tile row 0 is empty, row 1 holds the cloth
   own and the one above, shared with nothing (Occupied cells); and the
   cell **under** it is ground or a platform, never air, a gap or a block
   (a block can break), so the player always respawns standing on
-  something.
+  something. That check uses the cells in the list itself, before
+  anything is built.
+- **Its own cell:** a checkpoint is just a cell in the list, so like the
+  other kinds that are only cells it gets no settings in `setup()`
+  (`level-layout.md`, Building a thing). It works the cell out from its
+  `position`, which the level root sets from that cell before `setup()`
+  and `_ready` run. Its feet are on the top of the cell below, so:
+  `cell = Vector2i(floori(position.x / Grid.TILE), floori(position.y / Grid.TILE) - 1)`.
+  It needs it for `Level.respawn_cell` (see Touching it and After a
+  reload).
 - Not part of the jump check.
 
 ## Body

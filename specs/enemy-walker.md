@@ -125,6 +125,9 @@ The same order as the player, without input:
   The walker is switched off (`PROCESS_MODE_DISABLED`) whenever the
   enabler's area is off screen, and switched on while it is on screen.
 - Walkers start switched off and start walking when they come on screen.
+  A walker placed above the screen (on a negative row) would never come
+  on screen, so the layout check forbids it (`level-layout.md`, Checking
+  the layout).
 - Because the camera only moves right and never up or down (see
   `camera.md`), a walker that leaves the screen to the left or falls below
   it can never come back. It simply stays switched off. Walkers are never

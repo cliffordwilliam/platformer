@@ -26,9 +26,11 @@ the next level (`game-flow.md`, Winning).
 - **Anywhere**, like a coin: on the ground, floating, walled in by
   breakable blocks, up high. Nothing has to be under it. It never shares
   a cell with a block or anything else (below).
-- **The variant** is picked per door at build time, `sprite_1.png` or
-  `sprite_2.png`, each equally likely (`randi_range(1, 2)`). Like the
-  decorations, the randomness is not seeded.
+- **The variant** is picked by each door itself, in its `setup()`, like a
+  gift block's look (`gift-block.md`): `sprite_1.png` or `sprite_2.png`,
+  each equally likely (`randi_range(1, 2)`). The level script never
+  chooses it. Like the decorations, the randomness is not seeded (except
+  in a snapshot, `level-layout.md`, Snapshot).
 - Checked before the build (`level-layout.md`, Checking the layout): its
   column is between the start and the flag, and it takes **two cells**, its own and the
   one above (where its top reaches), shared with nothing (Occupied cells).
@@ -67,6 +69,6 @@ the next level (`game-flow.md`, Winning).
 | Player touches a door and reaches the death line in the same update | Dies, does not win |
 | Player touches a door while touching an enemy | Wins; not hurt |
 | Walker, diamond or spring passes a door | Nothing happens |
-| Door with ground, a block or anything placed in its cell or the cell above | The build stops with an error naming both |
+| Door with ground, a block or anything placed (other than a bar, flyer or leaper) in its cell or the cell above | The build stops with an error naming both |
 | Door in the start or flag area, or outside the level | The build stops with an error |
 | A level whose flag can't be reached by jumps, with a door before the gap | The jump check still fails: doors are not part of it |

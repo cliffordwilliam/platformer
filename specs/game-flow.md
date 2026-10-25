@@ -129,7 +129,7 @@ grows until it is the whole screen:
 
 ## Starting a level
 
-At the end of its `_ready` (`level-layout.md`, Building, step 6), only
+At the end of its `_ready` (`level-layout.md`, Building, step 5), only
 while `is_main`:
 
 1. `get_tree().paused = true`: nothing moves while the screen is black

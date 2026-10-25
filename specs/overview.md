@@ -135,6 +135,12 @@ Godot's own updates, not against copies of the code.
   checks that `errors` is empty, and if not, fails that test with each
   message as its own failed check. Either way the runner goes on to the
   next test.
+- **Test levels must be crossable too:** the jump check runs on them like
+  on any level, and a level whose jumps fail is not built
+  (`level-layout.md`, Jump check). A test that needs a wall uses a floor
+  at most 4 rows higher, which the jump check passes, or a column of
+  blocks, which it ignores. A test about the jump check itself passes
+  `expect_errors = true` and checks the messages.
 - **Between tests**, the runner sets `get_tree().paused = false` (a test
   may end paused: after a win, a death or in an injury freeze), frees the
   test level with `queue_free()` and waits one update, so the next test
@@ -187,8 +193,8 @@ Godot's own updates, not against copies of the code.
   by 2 itself: both numbers are odd, and in GDScript an `int` divided by an
   `int` drops the fraction (459 / 2 is 229, not 229.5).
 - The art looks pixelated, but the game is **not** rendered as pixel art:
-  sprites will be squashed, stretched and tweened later, which needs smooth
-  scaling. So:
+  sprites are squashed, stretched and tweened (`squash.md`), which needs
+  smooth scaling. So:
   - `display/window/stretch/mode = "canvas_items"`: the game is drawn at
     the window's real resolution, not at 459 × 257 and then blown up. At a
     459 × 257 window it is drawn one to one.
@@ -310,8 +316,7 @@ by hand in one.
 
 - **The script builds every child in code**, in its `_ready`: sprites and
   their `SpriteFrames`, collision shapes, `VisibleOnScreenEnabler2D`s,
-  `Timer`s, the diamond's pickup area. The title screen, the iris and the
-  bar already work this way. Anything a child needs from outside comes
+  `Timer`s, the diamond's pickup area. Anything a child needs from outside comes
   through `setup()`, which runs before `_ready` (`level-layout.md`,
   Building a thing).
 - **Built-in nodes with no script of their own** need no scene: the

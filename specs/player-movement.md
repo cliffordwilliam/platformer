@@ -20,6 +20,9 @@ moved with `move_and_slide`, with no `collision_layer` and
 | Maximum falling speed | 270 | px/s |
 | Climbing speed | 67.5 (upward, so `velocity.y = -67.5`) | px/s |
 
+These are `const`s on `Player`, so the level's jump check can read them
+before any player is built (`level-layout.md`, Jump check).
+
 ## Each update
 
 Every update runs these steps in this order:
