@@ -22,6 +22,10 @@ only the specs changed.
   practice build made while writing the specs was moved out of the
   repository and out of reach before the first run. The second run was
   told not to look at the first run's branch either.
+- **Model and effort:** both runs used Claude Opus 5.5
+  (`claude-opus-5-5`) in Claude Code at **high** effort. Both settings
+  change the time, tokens and cost, so a fair comparison keeps them the
+  same, and anyone repeating a run should use them too.
 - **No waiting on a person:** bypass mode, so no step waited for approval
   and the clock only measures Claude's work.
 - **Subagents allowed:** Claude decided whether to use them. Their tokens
