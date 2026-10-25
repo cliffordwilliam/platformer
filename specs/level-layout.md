@@ -399,7 +399,7 @@ whole level exists.
    7. `Ground` (`TileMapLayer`)
    8. `Spikes` (`TileMapLayer`, see Spikes)
    9. `Waterfalls` (`TileMapLayer`), then `GroundPieces` (`Node2D`
-      holding two `TileMapLayer`s per piece, see Decorations, Ground
+      holding three `TileMapLayer`s per piece, see Decorations, Ground
       pieces)
    10. `BlockItems` (`Node2D`): empty at the start; the coins and diamonds
        that come out of gift blocks, drawn behind every block
@@ -458,7 +458,8 @@ Purely visual, like the decorations, and the same in every biome.
   | (1, 1), (0, 2), (1, 2) | Empty |
 
 - One water `TileSet` (`tile_size` `Grid.TILE` × `Grid.TILE`, one atlas source, no physics, no
-  terrains), used by both `Water` and `Waterfalls`.
+  terrains), used by `Water`, `Waterfalls` and every ground piece's
+  `Piece<n>Waterfalls`.
 - The animated tiles are (0, 0), (2, 0), (2, 1) and (2, 2), each with 2
   frames laid out left to right (animation columns 0), each frame lasting
   0.1333 s (7.5 frames per second, the same as the enemies' animations),
@@ -589,11 +590,12 @@ it looks like ground but nothing touches it.
   (both can use the middle floor's columns); on one shared layer, terrain
   painting would merge them into one shape.
   - `GroundPieces` (see Building) is a `Node2D` holding, for each piece in
-    floor order, a layer named `Piece<n>` and right after it a layer named
+    floor order, three layers: `Piece<n>`, then `Piece<n>Waterfalls`, then
     `Piece<n>Decorations` (see Decorations on top), `<n>` counting from 0.
   - Godot draws later children on top, so a later piece is drawn in front
-    of the earlier one, outline and decorations included: it looks like a
-    ledge in front of the other. Nothing is erased or drawn over by hand.
+    of the earlier one, outline, waterfalls and decorations included: it
+    looks like a ledge in front of the other. Nothing is erased or drawn
+    over by hand.
   - Each `Piece<n>` uses the level's biome `TileSet`, with
     `collision_enabled = false`, so the tiles' collision shapes are not
     made: nothing collides with it.
@@ -603,18 +605,29 @@ it looks like ground but nothing touches it.
   ends and mixes the two fills. Tested on 4.7.2 with the ground sheet:
   rectangles 1 × 1, 3 × 1, 1 × 4, 2 × 2, 5 × 3 and 4 × 5 all came out with
   the right outline tile in every cell.
-- **Decorations on top:** each piece gets plain decorations like a floor
-  (see Placement above): every cell of its top row has a **20 %** chance
-  (`randf() < 0.2`) of one of the biome's decorations, picked with
-  `randi_range`, in the cell directly above. Plain decorations only: no
-  waterfalls and no big decorations. Like the floors, a piece whose top
-  row is 14 or more gets none, or 13 or more when `has_water` is on.
-  - They go in the piece's own `Piece<n>Decorations` layer, using the
-    biome's decorations `TileSet` (a `TileMapLayer` holds one `TileSet`, so
-    a piece and its decorations need a layer each). The plain
-    `Decorations` layer is behind the ground, where these would be hidden.
-  - A later piece's layers come after them, so a later piece drawn over an
-    earlier piece's decoration covers it.
+- **Decorations on top:** a piece's top row is decorated like a floor's
+  surface (see Placement above), except that it never gets a big
+  decoration: every cell of its top row has a **20 %** chance
+  (`randf() < 0.2`) of a decoration, picked with `randi_range` from the
+  biome's decorations, plus a **waterfall** when `has_water` is on and the
+  piece's top row is 11 or less, the same condition as a floor's. A piece
+  whose top row is 14 or more gets none, or 13 or more when `has_water` is
+  on.
+  - **A plain decoration** goes in the cell directly above, in the piece's
+    own `Piece<n>Decorations` layer, using the biome's decorations
+    `TileSet`. The plain `Decorations` layer is behind the ground, where
+    it would be hidden.
+  - **A waterfall** goes in the piece's own `Piece<n>Waterfalls` layer,
+    using the water `TileSet` (see Water), built exactly like a floor's:
+    its top on the piece's top-row cell (covering it), body down to row
+    11, base on row 12. It is drawn in front of its piece and behind the
+    water. With water a piece starts one row below the lower of its two
+    floors, so only a piece under floors on row 10 or less can get one.
+  - Each kind needs its own layer because a `TileMapLayer` holds one
+    `TileSet`: the piece the biome's, the waterfalls the water one, the
+    decorations the decorations one.
+  - A later piece's layers come after all three, so a later piece drawn
+    over an earlier piece's waterfall or decoration covers it.
   - Over the lower floor's columns, the cell above a piece is that floor's
     surface row, so a decoration there is drawn in front of the floor's
     top tile, never above its surface line.
@@ -835,10 +848,14 @@ may go anywhere.
 | A pair with a gap, or with a floor on row 14 | Never a piece |
 | A ground piece | Drawn in front of the ground and waterfalls, behind the water, blocks, enemies and the player; nothing collides with it (`collision_enabled` is false) |
 | Two overlapping pieces | Each on its own layer; the later one is drawn whole, outline included, over the earlier one |
-| A level with 3 pieces | `GroundPieces` holds `Piece0`, `Piece0Decorations`, `Piece1`, `Piece1Decorations`, `Piece2`, `Piece2Decorations`, in that order |
+| A level with 2 pieces | `GroundPieces` holds `Piece0`, `Piece0Waterfalls`, `Piece0Decorations`, `Piece1`, `Piece1Waterfalls`, `Piece1Decorations`, in that order |
 | A long ground piece | About 1 in 5 cells of its top row has a plain decoration above it, from the level's biome, drawn in front of the ground |
 | A later piece drawn over an earlier piece's decoration | That decoration is hidden behind the later piece |
 | A piece whose top row is 14 (or 13 with water) | No decorations on it |
+| `has_water` on, many pieces with top row 11 or less | About 1 in 5 top-row cells has a decoration or a waterfall; a waterfall's top covers the piece's top-row cell, body down to row 11, base on row 12, in front of the piece and behind the water |
+| `has_water` on, a piece with top row 12 | Plain decorations only, never a waterfall |
+| `has_water` off | No waterfall on any piece |
+| A later piece drawn over an earlier piece's waterfall | The waterfall is hidden behind the later piece |
 | `has_water` off, a 3-column gap | A spike tile on row 13 of each of the 3 columns; nothing else in them |
 | Any spike | Spikes drawn from y 248 to 257: their base on the death line and the screen's bottom edge |
 | `has_water` on, a gap | No spikes: water on rows 13 and 14 |
