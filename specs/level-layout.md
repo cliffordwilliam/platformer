@@ -639,9 +639,18 @@ guides drawn on top. It uses Godot's built-in Movie Maker mode, so it needs
 no screenshot code:
 
 ```
-godot --path . --write-movie snapshots/level_1_page_0.png --quit-after 2 res://tools/snapshot.tscn -- 1 0
+godot --path . --write-movie snapshots/level_1_page.png res://tools/snapshot.tscn -- 1
 ```
 
+- **One run shows every page of the level:** it writes one PNG per page,
+  `snapshots/level_1_page00000000.png` for page 0,
+  `level_1_page00000001.png` for page 1, and so on (Movie Maker adds the
+  frame number, 8 digits, to the name it was given). The frame number is
+  the page number. Look only at the pages needed; there is no one-page
+  mode.
+- **Remove the level's old pages first**
+  (`rm -f snapshots/level_1_page*.png`): a level that got shorter would
+  otherwise leave its old last pages behind, looking current.
 - **The `snapshots/` folder must exist first** (`mkdir -p snapshots`).
   Movie Maker does not create it: without it, it prints
   `Condition "d.is_null()" is true`, writes nothing, and still exits with
@@ -663,24 +672,39 @@ godot --path . --write-movie snapshots/level_1_page_0.png --quit-after 2 res://t
   `randi_range()` and terrain painting come out the same on every run.
   Editing the level script can change which looks come out, since things
   may then ask for random numbers in a different order; that is fine.
-- `res://tools/snapshot.tscn` has one script. It reads the level number and
-  the page from `OS.get_cmdline_user_args()` (everything after `--`).
-- It sets `Level.show_guides = true` (a `static var` on `Level`, false
-  otherwise), calls `seed(1)`, instantiates `res://levels/level_<n>.tscn`
-  and adds it. The level builds itself as usual. It is not the scene being
-  played (`is_main` is false, `game-flow.md`), so it has no iris and does
-  not pause itself.
+- `res://tools/snapshot.tscn` has one script. It reads the level number
+  from `OS.get_cmdline_user_args()` (everything after `--`).
+- In its `_ready` it sets `Level.show_guides = true` (a `static var` on
+  `Level`, false otherwise), calls `seed(1)`, instantiates
+  `res://levels/level_<n>.tscn` and adds it. The level builds itself as
+  usual. It is not the scene being played (`is_main` is false,
+  `game-flow.md`), so it has no iris and does not pause itself.
 - Then it pauses the game (`get_tree().paused = true`), so everything stays
-  exactly where it was placed, and puts the camera on the page.
+  exactly where it was placed. The snapshot's own root has
+  `process_mode = PROCESS_MODE_ALWAYS`, so it keeps running.
 - **Pages step by whole tiles:** page `p` puts the camera's left edge at
   column `25 * p` (x = 450 × p). A screen is 25.5 columns wide, so each
   page overlaps the next by half a column. The camera's right edge is still
-  clamped to `level_end_x`, like in the game, so a page past the end shows
-  the last screen.
-- Movie Maker writes numbered frames (`level_1_page_000000000.png`,
-  `level_1_page_000000001.png`); the last one is the snapshot. Frames are
-  the window's size, 1377 × 771 (3 × the screen). It also writes a sound
-  file next to them (`level_1_page_0.wav`), which is not used.
+  clamped to `level_end_x`, like in the game, so the last page shows the
+  level's last screen.
+- **The last page** is the first one whose screen reaches the level's
+  end: `last = ceili((level_end_x - Screen.width) / 450.0)`, 0 or more. A
+  level one screen wide has pages 0 and 1; a level 255 columns wide has
+  pages 0 to 10.
+- **One page per frame:** each `_process`, it puts the camera on page
+  `frame` (counting its own frames from 0), and on the last page it also
+  calls `get_tree().quit()`. Movie Maker draws each frame after that
+  frame's `_process`, so frame `n` shows page `n`, and `quit()` lets the
+  last frame finish, so the last page is written once, with no extra
+  frame. Tested on 4.7.2 with the game's window settings: three pages
+  written as three PNGs, each showing its own page, with tiles painted in
+  `_ready` already drawn on frame 0. (Setting a page in `_ready` and
+  moving on in `_process` instead puts every image one page ahead and
+  never writes page 0: tested.)
+- No `--quit-after` is needed: the script quits itself.
+- Frames are the window's size, 1377 × 771 (3 × the screen). Movie Maker
+  also writes a sound file next to them (`level_1_page.wav`), which is not
+  used.
 - A snapshot needs a window: it opens one for about a second. With
   `--headless`, Movie Maker crashes (tested on 4.7.2). Drawing on the first
   frame, a camera moved while paused, and drawing into another node from
@@ -701,6 +725,14 @@ signal of `Guides` and draws with `guides.draw_line()` and the like.
   every column, and row numbers (0 to 14) down the left edge of every page
   (every 25 columns), in Godot's built-in fallback font
   (`ThemeDB.fallback_font`), small and high-contrast
+- **floor labels**, so no floor's columns are ever added up by hand: for
+  every floor, start and end floors included, a yellow vertical line on
+  its left edge (x = its first column × `Grid.TILE`) over rows 0 to 14,
+  and next to it, at the top of the cell above its surface (row
+  `mini(row, 13) - 1`, so a gap's label is on row 12, on screen), its name
+  and first column in the same font, in yellow: `[3] col 14` for
+  `floors[3]` starting in column 14, `start` and `end` for the added
+  floors. The index is the one error messages use (see Floors).
 - red markers for failing jumps (see Jump check)
 - each enemy's and spring's own guides, drawn by the thing itself (so later
   layers, such as the player or the water, may cover parts of them): the
@@ -882,7 +914,12 @@ may go anywhere.
 | Snapshot with no `snapshots/` folder | Nothing written; create the folder first |
 | Normal run | No grid, no guides |
 | Snapshot page 1 | Camera's left edge at x = 450 |
-| Snapshot page past the level end | Camera's right edge at `level_end_x` |
+| Snapshot's last page | Camera's right edge at `level_end_x` |
+| Snapshot of a level 255 columns wide | One run writes `level_1_page00000000.png` to `level_1_page00000010.png`, 11 pages, each showing its own page; nothing more |
+| Snapshot of a level 26 columns wide | Pages 0 and 1 |
+| Snapshot, any floor | A yellow line on its left edge and its label, e.g. `[3] col 14`, `start` or `end`, in the cell above its surface |
+| Snapshot, a gap | Its label on row 12 |
+| Normal run | No floor labels |
 | Coin at cell (4, 6) | `position` (72, 108) |
 | Walker at cell (5, 10) | `position` (99, 198): feet on top of row 11 |
 | Flyer at cell (5, 4) | `position` (99, 81) |
