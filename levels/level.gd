@@ -23,6 +23,8 @@ const PLAYER_CELL := Vector2i(4, 11)
 ## The last row the screen shows (its top 5 px).
 const LAST_ROW := 14
 const MUSIC_VOLUME_DB := -5.4
+## The background picture of each biome.
+const BACKGROUND_PICTURES: Dictionary[Biome, int] = {Biome.SNOW: 1, Biome.GRASS: 3, Biome.DESERT: 2}
 
 ## Where the player starts; moved by checkpoints, kept through reloads.
 static var respawn_cell: Vector2i = PLAYER_CELL
@@ -466,6 +468,12 @@ func _build() -> void:
 		music.volume_db = MUSIC_VOLUME_DB
 
 	_fill_ground()
+	for spawn in platforms:
+		_paint_platform(spawn, _pick_look(spawn))
+	_paint_ladders()
+	_build_background()
+	if not show_guides:
+		_decorate()
 	_place_things()
 	if has_water:
 		_fill_water()
@@ -549,6 +557,304 @@ func _fill_ground() -> void:
 			for row in range(floors[i].y, LAST_ROW + 1):
 				cells.append(Vector2i(column, row))
 	ground.set_cells_terrain_connect(cells, 0, 0)
+
+
+## A random look from the ones this platform may have.
+func _pick_look(spawn: PlatformSpawn) -> PlatformLook:
+	var looks: Array[PlatformLook] = [PlatformLook.WOODEN, PlatformLook.CLOUD]
+	if biome == Biome.DESERT:
+		looks.append(PlatformLook.STONE)
+		if spawn.width >= 3:
+			looks.append(PlatformLook.MUSHROOM)
+	var look: PlatformLook = looks.pick_random()
+	return look
+
+
+## Draws one platform in a given look; picks only the per-cell variants.
+func _paint_platform(spawn: PlatformSpawn, look: PlatformLook) -> void:
+	var cells: Array[Vector2i] = []
+	for i in spawn.width:
+		cells.append(spawn.cell + Vector2i(i, 0))
+	match look:
+		PlatformLook.WOODEN:
+			for cell in cells:
+				var plank := Tiles.PLANK_1_SOURCE if randi_range(1, 2) == 1 else Tiles.PLANK_2_SOURCE
+				platform_layer.set_cell(cell, plank, Vector2i.ZERO)
+		PlatformLook.CLOUD:
+			platform_layer.set_cells_terrain_connect(cells, 0, Tiles.CLOUD_TERRAIN)
+		PlatformLook.STONE:
+			platform_layer.set_cells_terrain_connect(cells, 0, Tiles.STONE_TERRAIN)
+		PlatformLook.MUSHROOM:
+			_paint_mushroom(spawn)
+
+
+func _paint_mushroom(spawn: PlatformSpawn) -> void:
+	var row := spawn.cell.y
+	var left := spawn.cell.x
+	var right := spawn.cell.x + spawn.width - 1
+	var centre := spawn.cell.x + (spawn.width - 1) / 2
+	for column in range(left, right + 1):
+		var cell := Vector2i(column, row)
+		if column == centre:
+			platform_layer.set_cell(cell, Tiles.STALK_SOURCE, Vector2i(0, 0))
+		elif column == left:
+			platform_layer.set_cell(cell, Tiles.CAP_SOURCE, Vector2i(0, randi_range(0, 1)))
+		elif column == right:
+			platform_layer.set_cell(cell, Tiles.CAP_SOURCE, Vector2i(0, randi_range(0, 1)),
+					TileSetAtlasSource.TRANSFORM_FLIP_H)
+		else:
+			platform_layer.set_cell(cell, Tiles.CAP_SOURCE, Vector2i(1, 0))
+	var stalk := Vector2i(centre, row + 1)
+	while not _stops_stalk(stalk):
+		var base := _stops_stalk(stalk + Vector2i.DOWN)
+		platform_layer.set_cell(stalk, Tiles.STALK_SOURCE, Vector2i(0, 3) if base else Vector2i(0, randi_range(1, 2)))
+		stalk += Vector2i.DOWN
+	if show_guides:
+		return
+	var count := Tiles.decoration_count(biome)
+	for column in range(left, right + 1):
+		var below := Vector2i(column, row + 1)
+		if column != centre and not _stops_stalk(below) and randf() < 0.2:
+			mushroom_decoration_layer.set_cell(below, 0, Vector2i(randi_range(0, count - 1), 0),
+					TileSetAtlasSource.TRANSFORM_FLIP_V)
+
+
+## Whether a cell is ground (any floor, gaps included) or a platform cell.
+func _stops_stalk(cell: Vector2i) -> bool:
+	var i := _floor_index_at(cell.x)
+	if i == -1 or cell.y >= floors[i].y:
+		return true
+	return _is_platform_cell(cell)
+
+
+func _paint_ladders() -> void:
+	for spawn in ladders:
+		for i in spawn.height:
+			ladder_layer.set_cell(spawn.cell - Vector2i(0, i), 0, Vector2i(0, 0) if i == spawn.height - 1 else Vector2i(0, 1))
+
+
+#region Decorations
+
+## The still picture behind everything, repeated and scrolling at half speed.
+func _build_background() -> void:
+	var texture: Texture2D = load("res://art/backgrounds/sprite_%d.png" % BACKGROUND_PICTURES[biome])
+	var width := texture.get_width()
+	background.scroll_scale = Vector2(0.5, 1)
+	background.repeat_size = Vector2(width, 0)
+	var strip := Sprite2D.new()
+	strip.texture = texture
+	strip.centered = false
+	strip.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	strip.region_enabled = true
+	strip.region_rect = Rect2(0, 0, (ceili(Screen.width / float(width)) + 1) * width, texture.get_height())
+	background.add_child(strip)
+
+
+## Plain decorations, waterfalls, big decorations and ground pieces: random
+## pictures nothing touches.
+func _decorate() -> void:
+	var count := Tiles.decoration_count(biome)
+	var last_big := -1
+	var first_big := START_FLOOR.x + 5
+	var last_big_column := _flag_column() - 6
+	for i in floors.size():
+		var floor_ := floors[i]
+		if _is_gap(floor_) or floor_.y >= LAST_ROW:
+			continue
+		for column in range(_floor_starts[i], _floor_starts[i] + floor_.x):
+			if randf() >= 0.2:
+				continue
+			var big_kinds: Array[String] = []
+			if column >= first_big and column <= last_big_column \
+					and (last_big == -1 or (column - last_big) * Grid.TILE >= Screen.width):
+				if biome == Biome.GRASS:
+					big_kinds.append("tree")
+				if has_water:
+					big_kinds.append("pipe")
+				if floor_.y >= 8:
+					big_kinds.append("rope")
+			var waterfall := has_water and floor_.y <= 11
+			var candidates := count + (1 if waterfall else 0) + (1 if not big_kinds.is_empty() else 0)
+			var pick := randi_range(0, candidates - 1)
+			var surface := Vector2i(column, floor_.y)
+			if pick < count:
+				decoration_layer.set_cell(surface + Vector2i.UP, 0, Vector2i(pick, 0))
+			elif waterfall and pick == count:
+				_paint_waterfall(waterfall_layer, surface)
+			else:
+				var kind: String = big_kinds.pick_random()
+				last_big = column
+				match kind:
+					"tree":
+						_plant_tree(surface)
+					"pipe":
+						_paint_pipe(column, randi_range(2, 6), [false, true].pick_random(), randi_range(2, 6))
+					"rope":
+						_plant_rope(surface)
+	_add_ground_pieces()
+
+
+## A waterfall from a surface tile down to just above the water.
+func _paint_waterfall(layer: TileMapLayer, surface: Vector2i) -> void:
+	layer.set_cell(surface, 0, Tiles.WATERFALL_TOP)
+	for row in range(surface.y + 1, 12):
+		layer.set_cell(Vector2i(surface.x, row), 0, Tiles.WATERFALL_BODY)
+	layer.set_cell(Vector2i(surface.x, 12), 0, Tiles.WATERFALL_BASE)
+
+
+## Lower ledges drawn in front of the ground's fill where two floors meet.
+func _add_ground_pieces() -> void:
+	var count := Tiles.decoration_count(biome)
+	var n := 0
+	for i in range(1, floors.size()):
+		var previous := floors[i - 1]
+		var this := floors[i]
+		if _is_gap(previous) or _is_gap(this) or previous.x < 2 or this.x < 2:
+			continue
+		var top := maxi(previous.y, this.y) + 1
+		if top > LAST_ROW or randf() >= 0.5:
+			continue
+		var left := randi_range(_floor_starts[i - 1] + 1, _floor_starts[i] - 1)
+		var right := randi_range(_floor_starts[i], _floor_starts[i] + this.x - 2)
+		var piece := TileMapLayer.new()
+		piece.name = "Piece%d" % n
+		piece.tile_set = Tiles.ground(biome)
+		piece.collision_enabled = false
+		var waterfalls := TileMapLayer.new()
+		waterfalls.name = "Piece%dWaterfalls" % n
+		waterfalls.tile_set = Tiles.water()
+		var decorations := TileMapLayer.new()
+		decorations.name = "Piece%dDecorations" % n
+		decorations.tile_set = Tiles.decorations(biome)
+		ground_piece_layer.add_child(piece)
+		ground_piece_layer.add_child(waterfalls)
+		ground_piece_layer.add_child(decorations)
+		n += 1
+		var cells: Array[Vector2i] = []
+		for row in range(top, LAST_ROW + 1):
+			for column in range(left, right + 1):
+				cells.append(Vector2i(column, row))
+		piece.set_cells_terrain_connect(cells, 0, 0)
+		if top >= (13 if has_water else LAST_ROW):
+			continue
+		var waterfall := has_water and top <= 11
+		for column in range(left, right + 1):
+			if randf() >= 0.2:
+				continue
+			var pick := randi_range(0, count - 1 + (1 if waterfall else 0))
+			if pick < count:
+				decorations.set_cell(Vector2i(column, top - 1), 0, Vector2i(pick, 0))
+			else:
+				_paint_waterfall(waterfalls, Vector2i(column, top))
+
+
+## A tree standing on a surface tile: stump, trunk, branches, canopies.
+func _plant_tree(surface: Vector2i) -> void:
+	var column := surface.x
+	var row := surface.y - 1
+	tree_layer.set_cell(Vector2i(column, row), Tiles.TRUNK_SOURCE, Vector2i(0, 6))
+	for i in randi_range(3, 5):
+		row -= 1
+		var cell := Vector2i(column, row)
+		match randi_range(0, 3):
+			0:
+				tree_layer.set_cell(cell, Tiles.TRUNK_SOURCE, Vector2i(0, [1, 3].pick_random()))
+			1:
+				tree_layer.set_cell(cell, Tiles.TRUNK_SOURCE, Vector2i(0, 4))
+				_grow_branch(cell, -1)
+			2:
+				tree_layer.set_cell(cell, Tiles.TRUNK_SOURCE, Vector2i(0, 5))
+				_grow_branch(cell, 1)
+			3:
+				tree_layer.set_cell(cell, Tiles.TRUNK_SOURCE, Vector2i(0, 2))
+				_grow_branch(cell, -1)
+				_grow_branch(cell, 1)
+	row -= 1
+	tree_layer.set_cell(Vector2i(column, row), Tiles.TRUNK_SOURCE, Vector2i(0, 0))
+	var left := column - randi_range(1, 2)
+	var right := column + randi_range(1, 2)
+	var top := row - randi_range(1, 5) + 1
+	tree_canopy_layer.set_cells_terrain_connect(_rect(left, top, right, row), 0, 0)
+	for side: int in [-1, 1]:
+		var edge := left if side == -1 else right
+		var anchor := randi_range(top, row)
+		var up: bool
+		if anchor - top == row - anchor:
+			up = randi_range(0, 1) == 0
+		else:
+			up = row - anchor < anchor - top
+		var width := randi_range(2, 3)
+		var height := randi_range(1, 3)
+		var outer := edge + side * (width - 1)
+		var far_row := anchor - (height - 1) if up else anchor + (height - 1)
+		tree_canopy_front_layer.set_cells_terrain_connect(
+				_rect(mini(edge, outer), mini(anchor, far_row), maxi(edge, outer), maxi(anchor, far_row)), 0, 0)
+
+
+## A branch from a branch point, `side` -1 left or 1 right.
+func _grow_branch(point: Vector2i, side: int) -> void:
+	var length := randi_range(1, 2)
+	var flip := TileSetAtlasSource.TRANSFORM_FLIP_H if side == 1 else 0
+	for i in length:
+		var cell := point + Vector2i(side * (i + 1), 0)
+		var tip := i == length - 1
+		tree_layer.set_cell(cell, Tiles.BRANCH_SOURCE, Vector2i(0 if tip else 1, randi_range(0, 1)), flip)
+
+
+## Every cell of a rectangle given by its corners, both included.
+func _rect(left: int, top: int, right: int, bottom: int) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	for row in range(top, bottom + 1):
+		for column in range(left, right + 1):
+			cells.append(Vector2i(column, row))
+	return cells
+
+
+## A rope from a surface tile up to a ground mass hanging from the top.
+func _plant_rope(surface: Vector2i) -> void:
+	var column := surface.x
+	rope_layer.set_cell(Vector2i(column, surface.y - 1), 0, Vector2i(0, 2))
+	for row in range(3, surface.y - 1):
+		rope_layer.set_cell(Vector2i(column, row), 0, Vector2i(0, 1))
+	rope_layer.set_cell(Vector2i(column, 2), 0, Vector2i(0, 0))
+	var left := column - randi_range(1, 2)
+	var right := column + randi_range(1, 2)
+	var mass := _rect(left, 0, right, 1)
+	var left_support := left - randi_range(2, 3) + 1
+	var right_support := right + randi_range(2, 3) - 1
+	for c in range(left_support, left):
+		mass.append(Vector2i(c, 0))
+	for c in range(right + 1, right_support + 1):
+		mass.append(Vector2i(c, 0))
+	var painted := mass.duplicate()
+	for c in range(left_support, right_support + 1):
+		painted.append(Vector2i(c, -1))
+	rope_ceiling_layer.set_cells_terrain_connect(painted, 0, 0)
+	var count := Tiles.decoration_count(biome)
+	for cell in mass:
+		var below := cell + Vector2i.DOWN
+		if mass.has(below) or below == Vector2i(column, 2):
+			continue
+		if randf() < 0.2:
+			rope_ceiling_decoration_layer.set_cell(below, 0, Vector2i(randi_range(0, count - 1), 0),
+					TileSetAtlasSource.TRANSFORM_FLIP_V)
+
+
+## An upside-down U of pipe hanging from above the screen; picks nothing.
+func _paint_pipe(column: int, h: int, right: bool, w: int) -> void:
+	var other := column + (w - 1) * (1 if right else -1)
+	var left_leg := mini(column, other)
+	var right_leg := maxi(column, other)
+	var path: Array[Vector2i] = []
+	for row in range(-1, h):
+		path.append(Vector2i(left_leg, row))
+	for c in range(left_leg + 1, right_leg):
+		path.append(Vector2i(c, h - 1))
+	for row in range(h - 1, -2, -1):
+		path.append(Vector2i(right_leg, row))
+	pipe_layer.set_cells_terrain_path(path, 0, 0)
+
+#endregion
 
 
 func _fill_water() -> void:

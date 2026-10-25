@@ -1486,3 +1486,398 @@ func test_bar_hurts() -> void:
 	check(await wait_until(func() -> bool: return level.health < 2, 200), "touching a bar hurts")
 
 #endregion
+
+
+#region Platforms and ladders (one-way-platform.md, ladder.md)
+
+## The tiles of one row of the platform layer: [source, coords, flipped].
+func platform_row(from: Vector2i, width: int) -> Array:
+	var row := []
+	for i in width:
+		var cell := from + Vector2i(i, 0)
+		var alternative := level.platform_layer.get_cell_alternative_tile(cell)
+		row.append([level.platform_layer.get_cell_source_id(cell), level.platform_layer.get_cell_atlas_coords(cell),
+				alternative != 0])
+	return row
+
+
+func test_platform_looks_picked() -> void:
+	make(flat())
+	var counts := {}
+	for i in 400:
+		var look := level._pick_look(PlatformSpawn.new(Vector2i(10, 8), 3))
+		counts[look] = counts.get(look, 0) + 1
+	check(counts.size() == 2 and counts[Level.PlatformLook.WOODEN] > 150, "snow: wooden or cloud, about half each")
+	level.biome = Level.Biome.DESERT
+	counts = {}
+	for i in 400:
+		var look := level._pick_look(PlatformSpawn.new(Vector2i(10, 8), 3))
+		counts[look] = counts.get(look, 0) + 1
+	check(counts.size() == 4 and counts.values().all(func(n: int) -> bool: return n > 70), "desert, 3 wide: four looks")
+	counts = {}
+	for i in 300:
+		var look := level._pick_look(PlatformSpawn.new(Vector2i(10, 8), 2))
+		counts[look] = counts.get(look, 0) + 1
+	check(counts.size() == 3 and not counts.has(Level.PlatformLook.MUSHROOM), "desert, 2 wide: never a mushroom")
+
+
+func test_platform_cloud_and_stone() -> void:
+	make(flat())
+	var end := [Tiles.CLOUD_SOURCE, Vector2i(0, 0), false]
+	var body := [Tiles.CLOUD_SOURCE, Vector2i(1, 0), false]
+	var mirrored := [Tiles.CLOUD_SOURCE, Vector2i(0, 0), true]
+	level._paint_platform(PlatformSpawn.new(Vector2i(8, 2), 1), Level.PlatformLook.CLOUD)
+	check_equal(platform_row(Vector2i(8, 2), 1), [[Tiles.CLOUD_SOURCE, Vector2i(2, 0), false]], "cloud, width 1")
+	level._paint_platform(PlatformSpawn.new(Vector2i(8, 4), 2), Level.PlatformLook.CLOUD)
+	check_equal(platform_row(Vector2i(8, 4), 2), [end, mirrored], "cloud, width 2")
+	level._paint_platform(PlatformSpawn.new(Vector2i(8, 6), 4), Level.PlatformLook.CLOUD)
+	check_equal(platform_row(Vector2i(8, 6), 4), [end, body, body, mirrored], "cloud, width 4")
+	level._paint_platform(PlatformSpawn.new(Vector2i(14, 2), 2), Level.PlatformLook.CLOUD)
+	level._paint_platform(PlatformSpawn.new(Vector2i(16, 2), 3), Level.PlatformLook.CLOUD)
+	check_equal(platform_row(Vector2i(14, 2), 5), [end, body, body, body, mirrored], "two clouds join")
+	level._paint_platform(PlatformSpawn.new(Vector2i(14, 6), 4), Level.PlatformLook.STONE)
+	check_equal(platform_row(Vector2i(14, 6), 4), [[Tiles.STONE_SOURCE, Vector2i(0, 0), false],
+			[Tiles.STONE_SOURCE, Vector2i(1, 0), false], [Tiles.STONE_SOURCE, Vector2i(1, 0), false],
+			[Tiles.STONE_SOURCE, Vector2i(0, 0), true]], "stone, width 4")
+	level._paint_platform(PlatformSpawn.new(Vector2i(20, 8), 2), Level.PlatformLook.CLOUD)
+	level._paint_platform(PlatformSpawn.new(Vector2i(22, 8), 2), Level.PlatformLook.STONE)
+	check_equal(platform_row(Vector2i(20, 8), 4), [end, mirrored, [Tiles.STONE_SOURCE, Vector2i(0, 0), false],
+			[Tiles.STONE_SOURCE, Vector2i(0, 0), true]], "a cloud and a stone keep their own ends")
+	var wooden := PlatformSpawn.new(Vector2i(20, 4), 3)
+	level._paint_platform(wooden, Level.PlatformLook.WOODEN)
+	check(platform_row(Vector2i(20, 4), 3).all(func(t: Array) -> bool:
+		return t[0] in [Tiles.PLANK_1_SOURCE, Tiles.PLANK_2_SOURCE]), "wooden: every cell a plank")
+
+
+func test_platform_mushroom() -> void:
+	make(flat(func(l: Level) -> void: l.platforms = [PlatformSpawn.new(Vector2i(20, 6), 2)]))
+	level._paint_platform(PlatformSpawn.new(Vector2i(8, 8), 3), Level.PlatformLook.MUSHROOM)
+	var cap := platform_row(Vector2i(8, 8), 3)
+	check(cap[0][0] == Tiles.CAP_SOURCE and cap[0][1].x == 0 and not cap[0][2], "left cap end")
+	check_equal(cap[1], [Tiles.STALK_SOURCE, Vector2i(0, 0), false], "cap centre")
+	check(cap[2][0] == Tiles.CAP_SOURCE and cap[2][1].x == 0 and cap[2][2], "right end mirrored")
+	var stalk := [level.platform_layer.get_cell_atlas_coords(Vector2i(9, 9)),
+			level.platform_layer.get_cell_atlas_coords(Vector2i(9, 10)), level.platform_layer.get_cell_atlas_coords(Vector2i(9, 11))]
+	check(stalk[0].y in [1, 2] and stalk[1].y in [1, 2] and stalk[2] == Vector2i(0, 3), "stalk bodies, base on row 11")
+	level._paint_platform(PlatformSpawn.new(Vector2i(12, 11), 4), Level.PlatformLook.MUSHROOM)
+	check_equal(level.platform_layer.get_cell_atlas_coords(Vector2i(13, 11)), Vector2i(0, 0), "width 4: centre rounded down")
+	check_equal(level.platform_layer.get_cell_source_id(Vector2i(13, 12)), -1, "cap right above the ground: no stalk")
+	level._paint_platform(PlatformSpawn.new(Vector2i(19, 3), 5), Level.PlatformLook.MUSHROOM)
+	check_equal(level.platform_layer.get_cell_atlas_coords(Vector2i(21, 5)), Vector2i(0, 3), "stalk stops on another platform")
+	check(level.platform_layer.get_cell_source_id(Vector2i(21, 6)) != Tiles.STALK_SOURCE, "never paints over the platform")
+
+
+func test_platform_mushroom_plants() -> void:
+	make(flat())
+	var plants := 0
+	var cells := 0
+	var wrong := false
+	for i in 30:
+		level.mushroom_decoration_layer.clear()
+		level._paint_platform(PlatformSpawn.new(Vector2i(10, 4), 5), Level.PlatformLook.MUSHROOM)
+		for column in range(10, 15):
+			var below := Vector2i(column, 5)
+			var plant := level.mushroom_decoration_layer.get_cell_source_id(below) != -1
+			if column == 12:
+				wrong = wrong or plant
+				continue
+			cells += 1
+			if plant:
+				plants += 1
+				wrong = wrong or level.mushroom_decoration_layer.get_cell_alternative_tile(below) != TileSetAtlasSource.TRANSFORM_FLIP_V
+	check(plants > cells * 0.1 and plants < cells * 0.3, "about 1 in 5 cap cells has a plant (%d of %d)" % [plants, cells])
+	check(not wrong, "upside down, never under the stalk")
+
+
+func test_platform_physics() -> void:
+	make(flat(func(l: Level) -> void:
+		l.platforms = [PlatformSpawn.new(Vector2i(3 + 4, 9), 3), PlatformSpawn.new(Vector2i(13, 11), 2)]
+		l.walkers = [WalkerSpawn.new(Vector2i(14, 10), WalkerSpawn.Kind.PLAIN)]))
+	await settle()
+	level.player.position.x = 8 * 18 + 9
+	press("jump")
+	var stopped := false
+	for i in 30:
+		await updated
+		if level.player.is_on_ceiling():
+			stopped = true
+	release("jump")
+	check(not stopped, "jumps up through a platform")
+	check(await wait_until(func() -> bool: return level.player.is_on_floor(), 120), "lands")
+	check_near(level.player.position.y, 162, "stands on top of it", 0.05)
+	check(level.block_at(Vector2i(8, 9)) == null, "a platform is not a block")
+	check(await wait_until(func() -> bool: return walker().position.y > 200 and walker().is_on_floor(), 200),
+			"a walker walks off a platform's end")
+
+
+func test_ladder_cells() -> void:
+	make(flat(func(l: Level) -> void: l.ladders = [LadderSpawn.new(Vector2i(8, 9), 4), LadderSpawn.new(Vector2i(12, 9), 1)]))
+	check_equal([level.ladder_layer.get_cell_atlas_coords(Vector2i(8, 6)), level.ladder_layer.get_cell_atlas_coords(Vector2i(8, 7)),
+			level.ladder_layer.get_cell_atlas_coords(Vector2i(8, 9))], [Vector2i(0, 0), Vector2i(0, 1), Vector2i(0, 1)],
+			"cap on top, body below")
+	check(level.ladder_at(Vector2i(8, 9)) and not level.ladder_at(Vector2i(8, 10)), "ladder_at")
+	check_equal(level.ladder_layer.get_cell_atlas_coords(Vector2i(12, 9)), Vector2i(0, 0), "height 1: the cap")
+
+
+func test_ladder_climb() -> void:
+	make(flat(func(l: Level) -> void: l.ladders = [LadderSpawn.new(Vector2i(10, 11), 4)]))
+	await settle()
+	level.player.position.x = 189
+	press("move_up")
+	await wait(2)
+	check_equal(level.player.state, Player.State.CLIMB, "Climb")
+	check_near(level.player.velocity.y, -67.5, "velocity.y -67.5")
+	check(level.player.sprite.animation == "climb", "climb animation")
+	var states := []
+	for i in 80:
+		await updated
+		states.append(level.player.state)
+	check_near(level.player.position.y, 144, "feet stop on the cap's top", 0.05)
+	check_equal(level.player.state, Player.State.IDLE, "Idle on top with up held")
+	var last_idle := states.rfind(Player.State.CLIMB)
+	check(states.slice(last_idle + 1).all(func(s: int) -> bool: return s == Player.State.IDLE), "no flicker")
+
+
+func test_ladder_let_go_and_sideways() -> void:
+	make(flat(func(l: Level) -> void: l.ladders = [LadderSpawn.new(Vector2i(10, 11), 4)]))
+	await settle()
+	level.player.position.x = 189
+	press("move_up")
+	await wait(30)
+	release("move_up")
+	await updated
+	check_equal(level.player.state, Player.State.FALL, "let go: Fall")
+	check(level.player.velocity.y > 0 and level.player.velocity.y < 40, "falls from 0 with heavy gravity")
+	check(await wait_until(func() -> bool: return level.player.is_on_floor(), 120), "back on the ground")
+	level.player.position.x = 189 - 18
+	press("move_up")
+	await wait(5)
+	check(level.player.state != Player.State.CLIMB, "one column off: does not climb")
+
+
+func test_ladder_block_above() -> void:
+	make(flat(func(l: Level) -> void:
+		l.ladders = [LadderSpawn.new(Vector2i(10, 11), 3)]
+		l.blocks = [BreakableBlockSpawn.new(Vector2i(10, 8))]))
+	await settle()
+	level.player.position.x = 189
+	press("move_up")
+	await wait(90)
+	check(block().visible, "the block is not bonked while climbing")
+	check(level.player.is_on_ceiling(), "stops under it")
+
+
+func test_ladder_land_on_top() -> void:
+	make(flat(func(l: Level) -> void: l.ladders = [LadderSpawn.new(Vector2i(10, 11), 3)]))
+	await settle()
+	drop_player(Vector2(189, 100))
+	await wait(2)
+	check(await wait_until(func() -> bool: return level.player.is_on_floor(), 60), "lands")
+	check_near(level.player.position.y, 162, "stands on the cap", 0.05)
+
+#endregion
+
+
+#region Decorations, water and spikes (level-layout.md, background.md, trees.md, ropes.md, pipes.md)
+
+func test_water_and_spikes() -> void:
+	make(func(l: Level) -> void:
+		l.floors = [Vector2i(10, 12), Vector2i(3, 13), Vector2i(17, 12)]
+		l.has_water = true)
+	var all := true
+	for column in 47:
+		if level.water_layer.get_cell_atlas_coords(Vector2i(column, 13)) != Tiles.WATER_SURFACE \
+				or level.water_layer.get_cell_atlas_coords(Vector2i(column, 14)) != Tiles.WATER_BODY:
+			all = false
+	check(all, "water surface on row 13 and body on row 14, columns 0 to 46")
+	check(level.spike_layer.get_used_cells().is_empty(), "no spikes with water")
+	check(level.ground.get_cell_source_id(Vector2i(18, 13)) == -1, "a floor on row 13 with water is a gap")
+	var source := Tiles.water().get_source(0) as TileSetAtlasSource
+	check_equal(source.get_tile_animation_frames_count(Tiles.WATER_SURFACE), 2, "animating")
+	level.free()
+	make(func(l: Level) -> void: l.floors = [Vector2i(10, 12), Vector2i(3, 15), Vector2i(17, 14)])
+	check(level.water_layer.get_used_cells().is_empty() and level.waterfall_layer.get_used_cells().is_empty(),
+			"no water and no waterfalls without water")
+	var spikes := level.spike_layer.get_used_cells()
+	spikes.sort()
+	check_equal(spikes, [Vector2i(17, 13), Vector2i(18, 13), Vector2i(19, 13)], "a spike on row 13 of each gap column")
+	check_equal(level.spike_layer.position.y, 5.0, "spikes stand on the death line: 248 to 257")
+	check(level.ground.get_cell_source_id(Vector2i(20, 14)) != -1, "a floor on row 14 is ground")
+	var decorated := false
+	for column in range(20, 37):
+		if level.decoration_layer.get_cell_source_id(Vector2i(column, 13)) != -1:
+			decorated = true
+	check(not decorated, "a floor on row 14 gets no decorations")
+
+
+func test_decorations_rate() -> void:
+	var cells := 0
+	var decorated := 0
+	for i in 6:
+		make(func(l: Level) -> void:
+			l.floors = [Vector2i(200, 11)]
+			l.biome = Level.Biome.DESERT)
+		for column in range(0, level._column_count()):
+			var floor_row := 11 if column >= 7 and column < 207 else 12
+			cells += 1
+			var above := Vector2i(column, floor_row - 1)
+			if level.decoration_layer.get_cell_source_id(above) != -1 or level.tree_layer.get_cell_source_id(above) != -1 \
+					or level.rope_layer.get_cell_source_id(above) != -1:
+				decorated += 1
+		check(level.decoration_layer.tile_set == Tiles.decorations(Level.Biome.DESERT), "the biome's decorations")
+		level.free()
+	check(decorated > cells * 0.15 and decorated < cells * 0.25, "about 1 in 5 (%d of %d)" % [decorated, cells])
+
+
+func test_waterfall() -> void:
+	make(flat())
+	level._paint_waterfall(level.waterfall_layer, Vector2i(20, 8))
+	check_equal([level.waterfall_layer.get_cell_atlas_coords(Vector2i(20, 8)), level.waterfall_layer.get_cell_atlas_coords(Vector2i(20, 9)),
+			level.waterfall_layer.get_cell_atlas_coords(Vector2i(20, 11)), level.waterfall_layer.get_cell_atlas_coords(Vector2i(20, 12))],
+			[Tiles.WATERFALL_TOP, Tiles.WATERFALL_BODY, Tiles.WATERFALL_BODY, Tiles.WATERFALL_BASE], "top, body, base on row 12")
+
+
+func test_ground_pieces() -> void:
+	var got := 0
+	var shapes_ok := true
+	for i in 40:
+		make(func(l: Level) -> void: l.floors = [Vector2i(4, 8), Vector2i(5, 11), Vector2i(1, 11), Vector2i(10, 12)])
+		for p in level.ground_piece_layer.get_children():
+			if not p.name.ends_with("s"):
+				var cells: Array[Vector2i] = (p as TileMapLayer).get_used_cells()
+				var columns := cells.map(func(c: Vector2i) -> int: return c.x)
+				var rows := cells.map(func(c: Vector2i) -> int: return c.y)
+				if (p as TileMapLayer).collision_enabled:
+					shapes_ok = false
+				if rows.min() != 12:
+					continue
+				if rows.max() == 14 and columns.min() >= 8 and columns.min() <= 10 \
+						and columns.max() >= 11 and columns.max() <= 14:
+					got += 1
+				else:
+					shapes_ok = false
+		level.free()
+	check(shapes_ok, "piece: rows 12 to 14, left column 8 to 10, right 11 to 14, no collision")
+	check(got > 8 and got < 32, "about half the pairs get a piece (%d of 40)" % got)
+
+
+func test_ground_piece_layers() -> void:
+	var seen := false
+	for i in 30:
+		make(func(l: Level) -> void: l.floors = [Vector2i(4, 8), Vector2i(5, 9), Vector2i(5, 10)])
+		var names := level.ground_piece_layer.get_children().map(func(n: Node) -> String: return n.name)
+		if names.size() == 6:
+			check_equal(names, ["Piece0", "Piece0Waterfalls", "Piece0Decorations", "Piece1", "Piece1Waterfalls",
+					"Piece1Decorations"], "layers in order")
+			seen = true
+			level.free()
+			break
+		level.free()
+	check(seen, "a level with two pieces")
+	for i in 20:
+		make(func(l: Level) -> void: l.floors = [Vector2i(1, 8), Vector2i(5, 9), Vector2i(4, 15), Vector2i(5, 10), Vector2i(4, 14), Vector2i(3, 14)])
+		if level.ground_piece_layer.get_child_count() > 0:
+			fail("a pair with a 1-wide floor, a gap or a floor on row 14 got a piece")
+		level.free()
+
+
+func test_background() -> void:
+	for biome in [Level.Biome.SNOW, Level.Biome.DESERT, Level.Biome.GRASS]:
+		make(func(l: Level) -> void:
+			l.floors = [Vector2i(30, 12)]
+			l.biome = biome)
+		var strip: Sprite2D = level.background.get_child(0)
+		check(strip.texture.resource_path == "res://art/backgrounds/sprite_%d.png" % {0: 1, 1: 3, 2: 2}[biome],
+				"biome %d picture" % biome)
+		check_equal(strip.region_rect, Rect2(0, 0, 576, 257), "a strip 6 copies wide")
+		check(level.background.scroll_scale == Vector2(0.5, 1) and level.background.repeat_size == Vector2(96, 0), "half speed, looping")
+		check(level.get_child(0) == level.background, "drawn behind everything")
+		level.free()
+
+
+func test_big_decorations() -> void:
+	var near_ends := false
+	var too_close := false
+	var kinds := {}
+	for i in 12:
+		make(func(l: Level) -> void:
+			l.floors = [Vector2i(200, 9)]
+			l.biome = Level.Biome.GRASS
+			l.has_water = true)
+		var columns: Array[int] = []
+		for cell in level.tree_layer.get_used_cells():
+			if level.tree_layer.get_cell_atlas_coords(cell) == Vector2i(0, 6):
+				columns.append(cell.x)
+				kinds["tree"] = true
+		for cell in level.rope_layer.get_used_cells():
+			if level.rope_layer.get_cell_atlas_coords(cell) == Vector2i(0, 2):
+				columns.append(cell.x)
+				kinds["rope"] = true
+		var pipe_columns := {}
+		for cell in level.pipe_layer.get_used_cells():
+			pipe_columns[cell.x] = true
+			kinds["pipe"] = true
+		for layer: TileMapLayer in [level.tree_layer, level.tree_canopy_layer, level.tree_canopy_front_layer,
+				level.rope_layer, level.rope_ceiling_layer, level.pipe_layer]:
+			for cell in layer.get_used_cells():
+				if cell.x < 7 or cell.x >= 207:
+					near_ends = true
+		columns.sort()
+		for j in range(1, columns.size()):
+			if columns[j] - columns[j - 1] < 26:
+				too_close = true
+		level.free()
+	check(not near_ends, "never reaches the start or flag area")
+	check(not too_close, "never two closer than 26 tiles")
+	check(kinds.size() == 3, "trees, pipes and ropes all appear")
+
+
+func test_pipe_paint() -> void:
+	make(flat())
+	level._paint_pipe(14, 3, true, 4)
+	var p := level.pipe_layer
+	var vertical := Vector2i(0, 0)
+	check(p.get_cell_atlas_coords(Vector2i(14, 0)) == vertical and p.get_cell_atlas_coords(Vector2i(14, 1)) == vertical
+			and p.get_cell_atlas_coords(Vector2i(17, 0)) == vertical and p.get_cell_atlas_coords(Vector2i(17, 1)) == vertical,
+			"vertical bodies on rows 0 and 1")
+	check(p.get_cell_atlas_coords(Vector2i(14, 2)) == Vector2i(0, 1) and p.get_cell_alternative_tile(Vector2i(14, 2)) != 0,
+			"mirrored elbow in 14")
+	check(p.get_cell_atlas_coords(Vector2i(15, 2)) == Vector2i(0, 2) and p.get_cell_atlas_coords(Vector2i(16, 2)) == Vector2i(0, 2),
+			"horizontal bodies in 15 and 16")
+	check(p.get_cell_atlas_coords(Vector2i(17, 2)) == Vector2i(0, 1) and p.get_cell_alternative_tile(Vector2i(17, 2)) == 0,
+			"elbow as drawn in 17")
+	level._paint_pipe(20, 2, false, 2)
+	check(p.get_cell_atlas_coords(Vector2i(19, 1)) == Vector2i(0, 1) and p.get_cell_atlas_coords(Vector2i(20, 1)) == Vector2i(0, 1)
+			and p.get_cell_atlas_coords(Vector2i(19, 0)) == vertical, "w 2: two elbows side by side")
+
+
+func test_rope_and_tree() -> void:
+	make(func(l: Level) -> void:
+		l.floors = [Vector2i(40, 8)]
+		l.biome = Level.Biome.GRASS)
+	for layer: TileMapLayer in [level.tree_layer, level.tree_canopy_layer, level.tree_canopy_front_layer,
+			level.rope_layer, level.rope_ceiling_layer, level.rope_ceiling_decoration_layer]:
+		layer.clear()
+	level._plant_rope(Vector2i(20, 8))
+	var rope := level.rope_layer
+	check(rope.get_cell_atlas_coords(Vector2i(20, 7)) == Vector2i(0, 2) and rope.get_cell_atlas_coords(Vector2i(20, 2)) == Vector2i(0, 0),
+			"base above the surface, cap on row 2")
+	check_equal(rope.get_used_cells().size(), 6, "6 cells on a floor on row 8")
+	var mass := level.rope_ceiling_layer.get_used_cells()
+	var rows := mass.map(func(c: Vector2i) -> int: return c.y)
+	check(rows.min() == -1 and rows.max() == 1, "mass on rows 0 and 1, painted from row -1")
+	check(level.rope_ceiling_layer.get_cell_atlas_coords(Vector2i(20, 0)) in [Vector2i(2, 2), Vector2i(4, 1)],
+			"no outline along row 0")
+	check(level.rope_ceiling_decoration_layer.get_cell_source_id(Vector2i(20, 2)) == -1, "never a plant in the cap's cell")
+	level._plant_tree(Vector2i(30, 8))
+	var trunk := level.tree_layer.get_used_cells().filter(func(c: Vector2i) -> bool: return c.x == 30)
+	check(trunk.size() >= 5 and trunk.size() <= 7, "stump, 3 to 5 middle tiles, top")
+	check_equal(level.tree_layer.get_cell_atlas_coords(Vector2i(30, 7)), Vector2i(0, 6), "stump above the surface")
+	var canopy := level.tree_canopy_layer.get_used_cells()
+	var width: int = canopy.map(func(c: Vector2i) -> int: return c.x).max() - canopy.map(func(c: Vector2i) -> int: return c.x).min() + 1
+	check(width >= 3 and width <= 5, "main canopy 3 to 5 wide (%d: %s)" % [width, canopy])
+	var top: Vector2i = trunk.reduce(func(a: Vector2i, b: Vector2i) -> Vector2i: return a if a.y < b.y else b)
+	check(canopy.has(top) and canopy.map(func(c: Vector2i) -> int: return c.y).max() == top.y, "canopy's bottom row on the trunk's top")
+	check(level.tree_canopy_front_layer.get_used_cells().size() >= 4, "two supporting canopies")
+
+#endregion
