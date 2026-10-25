@@ -39,6 +39,7 @@ This file holds the rules every spec shares. Read it first.
 | `enemy-crusher.md` | An enemy that drops on the player and rises back; cannot be stomped |
 | `enemy-bar.md` | A line of sprites spinning around its centre; cannot be stomped |
 | `squash.md` | Squash and stretch on the player, walkers, crusher, diamond and spring |
+| `sound.md` | The title and level music and 14 sound effects (Ninja Adventure pack), when each plays and how loud |
 
 ## Engine
 
@@ -263,5 +264,6 @@ Godot's own updates, not against copies of the code.
   Walkers get their own layer so they can bump into each other (turning
   around) without also bumping into the crusher. Springs do the same on
   their own layer, so they stack on each other and nothing else.
-- No sound yet. Sound comes in a later spec; do not add any before then.
+- Sound is in `sound.md`: only the music and effects it lists, played
+  where it says.
 - Do not add mechanics a spec does not describe.

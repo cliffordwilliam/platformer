@@ -67,7 +67,8 @@ needs no death state.
 At the moment of the hit that kills the player:
 
 1. The game is paused with `get_tree().paused`, and stays paused. The
-   level is then retried (see After the death jump).
+   level is then retried (see After the death jump). The level's music
+   stops and the death sound plays (`sound.md`).
 2. The player is switched off completely: hidden (`visible = false`) and
    `process_mode = PROCESS_MODE_DISABLED`. It is not freed, so anything
    pointing at it (such as the camera) stays valid.

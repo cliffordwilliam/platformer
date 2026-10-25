@@ -40,13 +40,17 @@ title  →  level 1  →  level 2  →  …  →  last level  →  title
     centred both ways (`horizontal_alignment` and `vertical_alignment`
     set to centre), in the default font (`ThemeDB.fallback_font`) at size
     16 (`add_theme_font_size_override("font_size", 16)`)
+  - a `Music` player playing `adventure_begin.ogg`, looping, and a player for the
+    start sound (`sound.md`)
 - **It never pauses:** its root's `process_mode` is
   `PROCESS_MODE_ALWAYS`, set in its `_ready`. The game arrives here
   paused, from a won last level, and the pause carries over to the new
   scene (see above). Running always, it needs no code to unpause.
 - Each update (`_physics_process`), when
-  `Input.is_action_just_pressed("jump")` (space, `controls.md`), it
-  changes to `res://levels/level_1.tscn`.
+  `Input.is_action_just_pressed("jump")` (space, `controls.md`), it stops
+  the music, plays the start sound and waits for it to end, then changes
+  to `res://levels/level_1.tscn` (`sound.md`, Game flow with sound). Once
+  space has been pressed, pressing it again does nothing.
 - Holding space through the start of level 1 is fine: the player may jump
   as soon as the iris has opened.
 
@@ -129,7 +133,8 @@ At the end of its `_ready` (`level-layout.md`, Building, step 6), only
 while `is_main`:
 
 1. `get_tree().paused = true`: nothing moves while the screen is black
-   and the iris opens.
+   and the iris opens. The level's music starts here (`sound.md`, Music)
+   and keeps playing through the pause.
 2. `await iris.open()`: 1 s of black, then 0.5 s of opening on the player.
 3. `get_tree().paused = false`: play starts.
 
@@ -144,9 +149,12 @@ and calls `level.on_win()`:
 
 1. `Level.respawn_cell = PLAYER_CELL` (`checkpoint.md`), always, so the
    next level starts at its own start floor.
-2. Only while `is_main`: `await iris.close()`: the iris closes on the
+2. Only while `is_main`: stops the level's `Music` and
+   `await sounds.play_and_wait(Sounds.Effect.WIN)`: the whole win sound
+   plays before anything else happens (`sound.md`).
+3. Only while `is_main`: `await iris.close()`: the iris closes on the
    player, frozen where it won.
-3. Only while `is_main`: changes to the next scene (see Scenes in a line):
+4. Only while `is_main`: changes to the next scene (see Scenes in a line):
    the next level, which starts as above (1 s of black, then the iris
    opens), or the title screen after the last level.
 
@@ -156,11 +164,14 @@ When the player dies, the death scene does its death jump
 (`player-damage.md`), and once it has fallen off the bottom of the screen
 it calls `level.on_death()`:
 
-1. Only while `is_main`: `await iris.close()`: the iris closes on where
+1. Only while `is_main`: `await sounds.wait(Sounds.Effect.DEATH)`: the
+   death jingle, which started at the death, plays to its end
+   (`sound.md`).
+2. Only while `is_main`: `await iris.close()`: the iris closes on where
    the player died. The player node is hidden but still there, so the
    target is where it was at the moment of death (on the death line
    after a fall).
-2. Only while `is_main`: `get_tree().reload_current_scene()`. The level
+3. Only while `is_main`: `get_tree().reload_current_scene()`. The level
    is built fresh: everything back in place, 2 health, and the player
    standing at the respawn point (`checkpoint.md`), the start floor if no
    checkpoint was touched. It starts as above: 1 s of black, then the iris
