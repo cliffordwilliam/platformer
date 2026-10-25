@@ -122,10 +122,11 @@ func release(action: String) -> void:
 	Input.action_release(action)
 
 
-## A plain level: 30 columns of written ground on row 11.
+## A plain level: 30 columns of written ground on row 12, level with the
+## start and end floors.
 func flat(extra := Callable()) -> Callable:
 	return func(l: Level) -> void:
-		l.floors = [Vector2i(30, 11)]
+		l.floors = [Vector2i(30, 12)]
 		if extra.is_valid():
 			extra.call(l)
 
@@ -431,7 +432,7 @@ func test_layout_platforms_ladders_bars_leapers_flyers() -> void:
 	var l := make(flat(func(l: Level) -> void:
 		l.platforms = [PlatformSpawn.new(Vector2i(10, 8), 0), PlatformSpawn.new(Vector2i(14, 8), 3),
 				PlatformSpawn.new(Vector2i(16, 8), 2)]
-		l.ladders = [LadderSpawn.new(Vector2i(20, 10), 0), LadderSpawn.new(Vector2i(22, 11), 2)]
+		l.ladders = [LadderSpawn.new(Vector2i(20, 10), 0), LadderSpawn.new(Vector2i(22, 12), 2)]
 		l.bars = [BarSpawn.new(Vector2i(24, 5), -1, 0.0, true)]
 		l.leapers = [25]
 		l.flyers = [FlyerSpawn.new(Vector2i(26, 1), 221.0), FlyerSpawn.new(Vector2i(27, 0), 0.0),
@@ -439,7 +440,7 @@ func test_layout_platforms_ladders_bars_leapers_flyers() -> void:
 	check(has_error(l, "platforms[0] at (10, 8) has width 0"), "platform width 0")
 	check(has_error(l, "platform at (16, 8) overlaps platform at (14, 8)"), "platform on a platform")
 	check(has_error(l, "ladders[0] at (20, 10) has height 0"), "ladder height 0")
-	check(has_error(l, "ladder at (22, 11) overlaps floors[0]"), "ladder on the ground")
+	check(has_error(l, "ladder at (22, 12) overlaps floors[0]"), "ladder on the ground")
 	check(has_error(l, "bars[0] at (24, 5) has units -1"), "bar units -1")
 	check(has_error(l, "leaper in column 25 needs has_water"), "leaper without water")
 	check(has_error(l, "flyer at (26, 1)"), "flyer path 221 leaves the screen")
@@ -692,7 +693,7 @@ func test_damage_death_line() -> void:
 	make(func(l: Level) -> void: l.floors = [Vector2i(5, 12), Vector2i(4, 15), Vector2i(21, 12)])
 	await settle()
 	level.player.invincible = true
-	level.player.position = Vector2(220, 200)
+	level.player.position = Vector2(240, 200)
 	var died := false
 	for i in 60:
 		await updated
@@ -709,7 +710,7 @@ func test_damage_water_death_line() -> void:
 		l.floors = [Vector2i(5, 12), Vector2i(4, 13), Vector2i(21, 12)]
 		l.has_water = true)
 	await settle()
-	level.player.position = Vector2(220, 200)
+	level.player.position = Vector2(240, 200)
 	var alive_at_surface := false
 	for i in 60:
 		await updated
@@ -855,8 +856,8 @@ func test_jumps_platforms() -> void:
 	check(has_error(l, "floors[0]"), "an unreachable platform just ahead hides a reachable one")
 	level.free()
 	l = make(func(l: Level) -> void:
-		l.floors = [Vector2i(10, 12), Vector2i(10, 5), Vector2i(10, 5)]
-		l.platforms = [PlatformSpawn.new(Vector2i(15, 8), 4)])
+		l.floors = [Vector2i(10, 12), Vector2i(2, 15), Vector2i(10, 5)]
+		l.platforms = [PlatformSpawn.new(Vector2i(15, 8), 3)])
 	check(l.errors.is_empty(), "a platform 4 rows up over the edge, then a floor 3 rows above it: passes")
 	level.free()
 	l = make(func(l: Level) -> void:
