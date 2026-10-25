@@ -19,6 +19,31 @@ built from that spec by Claude.
   small commit per step, each ending with that run's time, tokens and
   cost so far (`measure/README.md`).
 
+## Playing the build
+
+With Godot 4.7.2 on the path, run `godot --path .` from the project
+folder (or open it in the Godot editor and press F5). Press space on
+the title screen to start.
+
+| Key | Does |
+|---|---|
+| Left / right arrows | Walk |
+| Space | Jump: hold it to jump higher |
+| Up arrow | Climb a ladder |
+
+Five levels, one after another: green hills, snow caves, a desert
+oasis, a river run and a frozen fortress. Reach the flag at the right
+end, or find a door. Land on walkers, flyers and leapers to stomp them,
+but not on the red spiked walkers, the crushers or the spinning bars.
+A blue box walker turns into a shell you can kick into the others.
+Hit blocks from below to break them or open gift blocks; a diamond
+heals one heart. Touch a checkpoint flag to start there after a fall.
+
+- Tests: `godot --path . res://tests/run_tests.tscn` (needs a window;
+  add `-- <name>` to run only matching tests).
+- Snapshot of a level, with guides:
+  `mkdir -p snapshots && godot --path . --write-movie snapshots/level_1_page.png res://tools/snapshot.tscn -- 1`
+
 ## Credits
 
 - **Art:** [Kenney](https://kenney.nl), released under
