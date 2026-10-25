@@ -226,14 +226,21 @@ The checks:
   to the column left of the flag. Columns 0 to 6 are the start area, the
   flag's column to the last column the flag area (see Floors), and any
   other column is outside the level: the message says which, e.g. `"coin
-  at (1, 6) is in the start area"`. Rows are free.
+  at (1, 6) is in the start area"`.
+- **Above the gap line:** every one of those cells (every cell each thing
+  takes, as in Occupied cells: a walker B's whole box, a door's or
+  checkpoint's top) is on a row less than `gap_row`. That is the same
+  line that turns floors into gaps (see Floors), and it moves with the
+  water the same way: row 14 at the lowest without water, row 12 at the
+  lowest with water.
+  Below it, a thing would be under the screen, or behind the water where
+  the player could stand on it in the water or never reach it. The
+  message names the thing and the line, e.g. `"coin at (20, 13) is below
+  the gap line (row 13)"`. Above the screen (negative rows) is allowed.
+  Leapers are written as columns, not cells, so this never applies to
+  them: they always sit on row 14, behind the water (`enemy-leaper.md`).
 - **`platforms`:** every width is 1 or more, like the floors.
 - **`ladders`:** every height is 1 or more.
-- **Nothing to stand on under the water:** with `has_water` on, no block,
-  no platform cell and no ladder's top cell is on row 13 or 14. The player
-  dies only when its feet reach the bottom of the screen (see Level end,
-  gap line and death line), so standing on one of these would be standing
-  in the water.
 - **`checkpoints`:** the cell under each checkpoint is ground (a cell of a
   floor that is not a gap, from its surface row down to row 14) or a cell
   of a platform, so the player always respawns standing on something
@@ -244,8 +251,8 @@ The checks:
   the diamond's enabler would switch it off for good.
 - **`leapers`:** only allowed when `has_water` is on (a leaper always
   leaps out of the water). Water is not turned on by the leapers: it also
-  moves the death line, turns low floors into gaps and swaps the spikes
-  for water, so the level script turns it on itself.
+  moves the gap line and swaps the spikes for water, so the level script
+  turns it on itself.
 - **`flyers`:** the flyer's whole sprite is on screen at both ends of its
   path (a `bob_distance` of 0 is allowed: it hovers, `enemy-flyer.md`):
   for the start `y = cell_to_position(cell, Origin.CENTRE).y` and the other end
@@ -698,8 +705,9 @@ again.
   root: the sum of all floor widths × `Grid.TILE`. It is the right edge of the
   ground, where the camera stops (`camera.md`).
 - `gap_row` is a read-only property (a GDScript getter) on the level root:
-  the row from which a floor is a gap and no ground is built (see Floors).
-  **15** without water, **13** with water.
+  the row from which a floor is a gap and no ground is built (see Floors),
+  and below which nothing may be placed (see Checking the layout). **15**
+  without water, **13** with water.
 - **The death line** is the same in every level: `Screen.height` (257),
   the bottom of the screen. The player dies when its feet reach it
   (`player-damage.md`). It does not move with the water: a player who
@@ -714,10 +722,10 @@ can be crossed from start to finish: from everything the player can stand
 on, there is a way onward to the right.
 
 - **Standable things** are every floor that is not a gap, and every
-  one-way platform (`one-way-platform.md`) whose row is less than
-  `gap_row`. (With water, a platform that low is already an error, see
-  Checking the layout; without water, one on row 15 or more is below the
-  screen.)
+  one-way platform (`one-way-platform.md`). Both come from the same line:
+  a floor on `gap_row` or below is a gap, and a platform there is already
+  an error (see Checking the layout), so the check never needs to look at
+  rows itself.
 - **Ahead:** one standable thing is ahead of another when its right edge is
   further right. (So a floor that runs on under a platform and past it is
   ahead of that platform, and a platform that starts above a floor but ends
@@ -841,8 +849,12 @@ may go anywhere.
 | `has_water` off, floor on row 14 | Ground (`gap_row` is 15), but no decorations |
 | `has_water` on, a walker walks off a ledge into the water | It sinks behind the water, falls below the screen and is switched off; it never walks under the water |
 | `has_water` on, the player falls into the water | Sinks behind the water and dies when its feet reach y 257, the same death line as without water |
-| `has_water` on, a block, platform cell or ladder top on row 13 or 14 | The build stops with an error |
-| `has_water` off, a block on row 14 | Allowed |
+| `has_water` on, a coin, block, walker, platform cell, ladder cell, door or anything else placed on row 13 or 14 | The build stops with an error: it is below the gap line (row 13) |
+| `has_water` on, a walker B on row 12 | Allowed: its box takes rows 11 and 12 |
+| `has_water` off, a block or coin on row 14 | Allowed |
+| `has_water` off, anything placed on row 15 or lower | The build stops with an error: it is below the gap line (row 15) |
+| A coin on row -1, above the screen | Allowed |
+| `has_water` on, leapers | Allowed: they are columns, always on row 14 |
 | Leaper rising from water | In front of waterfalls, behind the water |
 | Any `floors` | `level_end_x` = sum of widths × `Grid.TILE` |
 | Snapshot | Numbered grid and guides shown |
