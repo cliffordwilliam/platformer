@@ -7,6 +7,17 @@ built from that spec by Claude.
 - `art/`: the sprites and tiles.
 - `music/`: the music.
 - `sounds/`: the sound effects.
+- `PROMPT.md`: the prompt that builds the game from all of the above.
+- `measure/`: how the recorded build was measured, and the meter used.
+
+## Two branches
+
+- **`main`:** the specs, the assets and the prompt. To build the game
+  yourself, clone it, open Claude Code in it and say "Read PROMPT.md and
+  do what it says."
+- **`build`:** the game Claude built from `main` in one recorded run, one
+  small commit per step, each ending with that run's time, tokens and
+  cost so far (`measure/README.md`).
 
 ## Credits
 
