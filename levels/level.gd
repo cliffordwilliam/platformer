@@ -22,6 +22,7 @@ const END_FLOOR := Vector2i(10, 12)
 const PLAYER_CELL := Vector2i(4, 11)
 ## The last row the screen shows (its top 5 px).
 const LAST_ROW := 14
+const MUSIC_VOLUME_DB := -5.4
 
 ## Where the player starts; moved by checkpoints, kept through reloads.
 static var respawn_cell: Vector2i = PLAYER_CELL
@@ -77,6 +78,28 @@ var water_layer: TileMapLayer
 var effects: Node2D
 var guides: Node2D
 var heart: AnimatedSprite2D
+var flag: Flag
+var block_item_layer: Node2D
+var block_layer: Node2D
+var coin_layer: Node2D
+var spring_layer: Node2D
+var door_layer: Node2D
+var checkpoint_layer: Node2D
+var walker_layer: Node2D
+var flyer_layer: Node2D
+var leaper_layer: Node2D
+var crusher_layer: Node2D
+var bar_layer: Node2D
+var player: Player
+var camera: Camera
+var iris: Iris
+var sounds: Sounds
+var music: AudioStreamPlayer
+
+## The flag's x: reaching it wins the level.
+var win_x: float:
+	get:
+		return flag.position.x
 
 ## The level's right edge, in pixels: where the camera stops.
 var level_end_x: int:
@@ -377,8 +400,84 @@ func _check_occupied(placed: Array[Placed]) -> void:
 
 func _build() -> void:
 	background = _add_node(Parallax2D.new(), "Background")
+	tree_layer = _add_tile_layer("Trees", Tiles.trees())
+	tree_canopy_layer = _add_tile_layer("TreeCanopies", Tiles.trees())
+	tree_canopy_front_layer = _add_tile_layer("TreeCanopiesFront", Tiles.trees())
+	rope_ceiling_layer = _add_tile_layer("RopeCeilings", Tiles.ground(biome))
+	rope_ceiling_layer.collision_enabled = false
+	rope_ceiling_decoration_layer = _add_tile_layer("RopeCeilingDecorations", Tiles.decorations(biome))
+	rope_layer = _add_tile_layer("Ropes", Tiles.rope())
+	pipe_layer = _add_tile_layer("Pipes", Tiles.pipes())
+	decoration_layer = _add_tile_layer("Decorations", Tiles.decorations(biome))
+	flag = load("res://items/flag.tscn").instantiate()
+	flag.setup(self)
+	_add_node(flag, "Flag")
+	platform_layer = _add_tile_layer("Platforms", Tiles.platforms())
+	mushroom_decoration_layer = _add_tile_layer("MushroomDecorations", Tiles.decorations(biome))
+	ladder_layer = _add_tile_layer("Ladders", Tiles.ladder())
 	ground = _add_tile_layer("Ground", Tiles.ground(biome))
+	spike_layer = _add_tile_layer("Spikes", Tiles.spikes())
+	spike_layer.position.y = Screen.height - LAST_ROW * Grid.TILE
+	waterfall_layer = _add_tile_layer("Waterfalls", Tiles.water())
+	ground_piece_layer = _add_node(Node2D.new(), "GroundPieces")
+	block_item_layer = _add_node(Node2D.new(), "BlockItems")
+	block_layer = _add_node(Node2D.new(), "Blocks")
+	coin_layer = _add_node(Node2D.new(), "Coins")
+	spring_layer = _add_node(Node2D.new(), "Springs")
+	door_layer = _add_node(Node2D.new(), "Doors")
+	checkpoint_layer = _add_node(Node2D.new(), "Checkpoints")
+	walker_layer = _add_node(Node2D.new(), "Walkers")
+	flyer_layer = _add_node(Node2D.new(), "Flyers")
+	leaper_layer = _add_node(Node2D.new(), "Leapers")
+	crusher_layer = _add_node(Node2D.new(), "Crushers")
+	bar_layer = _add_node(Node2D.new(), "Bars")
+	player = load("res://player/player.tscn").instantiate()
+	player.setup(self)
+	_add_node(player, "Player")
+	water_layer = _add_tile_layer("Water", Tiles.water())
+	effects = _add_node(Node2D.new(), "Effects")
+	if show_guides:
+		guides = _add_node(Node2D.new(), "Guides")
+		guides.draw.connect(_draw_guides)
+	camera = load("res://levels/camera.tscn").instantiate()
+	camera.setup(self)
+	_add_node(camera, "Camera")
+	var hud := _add_node(CanvasLayer.new(), "HUD")
+	heart = AnimatedSprite2D.new()
+	heart.sprite_frames = sprite_frames({"default": [[
+		"res://art/heart/sprite_1.png", "res://art/heart/sprite_2.png", "res://art/heart/sprite_3.png"], 0.0]})
+	heart.centered = false
+	heart.position = Vector2(Screen.width - 26, 20)
+	heart.frame = health
+	hud.add_child(heart)
+	if is_main:
+		iris = load("res://levels/iris.tscn").instantiate()
+		iris.setup(self)
+		_add_node(iris, "Iris")
+	sounds = load("res://levels/sounds.tscn").instantiate()
+	sounds.setup(self)
+	_add_node(sounds, "Sounds")
+	if is_main:
+		music = _add_node(AudioStreamPlayer.new(), "Music")
+		music.process_mode = PROCESS_MODE_ALWAYS
+		var track: AudioStreamOggVorbis = load("res://music/adventure.ogg")
+		track.loop = true
+		music.stream = track
+		music.volume_db = MUSIC_VOLUME_DB
+
 	_fill_ground()
+	_place_things()
+	if has_water:
+		_fill_water()
+	else:
+		_fill_spikes()
+
+	flag.position = Vector2(level_end_x - 10 * Grid.TILE, 0)
+	player.position = cell_to_position(respawn_cell, Origin.FEET)
+	camera.position = Vector2(clampf(player.position.x, Screen.half_width, level_end_x - Screen.half_width),
+			Screen.half_height)
+	if is_main:
+		_start()
 
 
 func _add_node(node: Node, node_name: String) -> Node:
@@ -393,6 +492,20 @@ func _add_tile_layer(layer_name: String, tile_set: TileSet) -> TileMapLayer:
 	return _add_node(layer, layer_name)
 
 
+## Builds one of everything in the level script's lists.
+func _place_things() -> void:
+	pass
+
+
+## Instantiates a scene, places it, sets it up and adds it to its layer.
+func _spawn(path: String, cell: Vector2i, origin: Origin, layer: Node2D, settings: Array = []) -> Node:
+	var thing: Node2D = load(path).instantiate()
+	thing.position = cell_to_position(cell, origin)
+	thing.callv("setup", [self] + settings)
+	layer.add_child(thing)
+	return thing
+
+
 func _fill_ground() -> void:
 	var cells: Array[Vector2i] = []
 	for i in floors.size():
@@ -403,8 +516,195 @@ func _fill_ground() -> void:
 				cells.append(Vector2i(column, row))
 	ground.set_cells_terrain_connect(cells, 0, 0)
 
+
+func _fill_water() -> void:
+	for column in _column_count():
+		water_layer.set_cell(Vector2i(column, 13), 0, Tiles.WATER_SURFACE)
+		water_layer.set_cell(Vector2i(column, 14), 0, Tiles.WATER_BODY)
+
+
+func _fill_spikes() -> void:
+	for i in floors.size():
+		if _is_gap(floors[i]):
+			for column in range(_floor_starts[i], _floor_starts[i] + floors[i].x):
+				spike_layer.set_cell(Vector2i(column, 13), 0, Vector2i.ZERO)
+
 #endregion
 
 
+#region Play
+
+## Pauses, opens the iris on the player, then starts play.
+func _start() -> void:
+	get_tree().paused = true
+	music.play()
+	await iris.open()
+	get_tree().paused = false
+
+
+## Called by the player once it has won, the game already paused.
+func on_win() -> void:
+	respawn_cell = PLAYER_CELL
+	if not is_main:
+		return
+	music.stop()
+	await sounds.play_and_wait(Sounds.Effect.WIN)
+	await iris.close()
+	var next := "res://levels/level_%d.tscn" % (number() + 1)
+	get_tree().change_scene_to_file(next if ResourceLoader.exists(next) else "res://title.tscn")
+
+
+## Called by the death scene once it has fallen off the screen.
+func on_death() -> void:
+	if not is_main:
+		return
+	await sounds.wait(Sounds.Effect.DEATH)
+	await iris.close()
+	get_tree().reload_current_scene()
+
+
+## The level's number, from its scene's file name.
+func number() -> int:
+	return scene_file_path.get_file().get_basename().trim_prefix("level_").to_int()
+
+
+func add_effect(node: Node) -> void:
+	effects.add_child(node)
+
+
+func add_block_item(node: Node) -> void:
+	block_item_layer.add_child(node)
+
+
+func ladder_at(cell: Vector2i) -> bool:
+	return ladder_layer.get_cell_source_id(cell) != -1
+
+
+func _exit_tree() -> void:
+	if music != null:
+		music.stop()
+		music.stream = null
+
+
+## SpriteFrames from {animation: [[paths], fps]}; fps 0 for one still frame.
+static func sprite_frames(animations: Dictionary) -> SpriteFrames:
+	var frames := SpriteFrames.new()
+	frames.remove_animation("default")
+	for animation: String in animations:
+		var paths: Array = animations[animation][0]
+		var fps: float = animations[animation][1]
+		frames.add_animation(animation)
+		frames.set_animation_speed(animation, fps if fps > 0.0 else 5.0)
+		frames.set_animation_loop(animation, fps > 0.0)
+		for path: String in paths:
+			frames.add_frame(animation, load(path))
+	return frames
+
+#endregion
+
+
+#region Jump check
+
+## A floor or platform the player can stand on, for the jump check.
+class Standable:
+	var name: String
+	var left: int
+	var right: int
+	var row: int
+
+	func _init(name_: String, left_: int, right_: int, row_: int) -> void:
+		name = name_
+		left = left_
+		right = right_
+		row = row_
+
+
+## The player's jump from standing at top speed, jump held: after every
+## update, (distance right, height above the take-off) of its feet.
+static func jump_arc() -> Array[Vector2]:
+	var delta := 1.0 / Engine.physics_ticks_per_second
+	var arc: Array[Vector2] = []
+	var point := Vector2.ZERO
+	var velocity := Vector2(Player.WALK_SPEED, 0.0)
+	var rising := false
+	var first := true
+	while point.y > -Screen.height:
+		var gravity := Player.LIGHT_GRAVITY if rising else Player.HEAVY_GRAVITY
+		velocity.y = minf(velocity.y + gravity * delta, Player.MAX_FALL_SPEED)
+		if first:
+			velocity.y = -Player.JUMP_SPEED
+			first = false
+		point += Vector2(velocity.x, -velocity.y) * delta
+		rising = velocity.y < 0.0
+		arc.append(point)
+	return arc
+
+
+## How high above the take-off the jump reaches at a distance.
+static func jump_reach(arc: Array[Vector2], distance: float) -> float:
+	var apex := 0
+	for i in arc.size():
+		if arc[i].y > arc[apex].y:
+			apex = i
+	if distance <= arc[apex].x:
+		return arc[apex].y
+	for i in range(apex + 1, arc.size()):
+		if arc[i].x >= distance:
+			var a := arc[i - 1]
+			var b := arc[i]
+			return lerpf(a.y, b.y, (distance - a.x) / (b.x - a.x))
+	return -INF
+
+
+## From everything standable there is a way onward to the right.
 func _check_jumps() -> void:
+	var standing: Array[Standable] = []
+	var floor_things: Array[Standable] = []
+	var platform_things: Array[Standable] = []
+	for i in floors.size():
+		if not _is_gap(floors[i]):
+			var thing := Standable.new(_floor_name(i), _floor_starts[i], _floor_starts[i] + floors[i].x, floors[i].y)
+			floor_things.append(thing)
+	for i in platforms.size():
+		var p := platforms[i]
+		platform_things.append(Standable.new("platforms[%d] at %s" % [i, p.cell], p.cell.x, p.cell.x + p.width, p.cell.y))
+	standing.append_array(floor_things)
+	standing.append_array(platform_things)
+	var arc := jump_arc()
+	for from in standing:
+		if from.name == "end floor":
+			continue
+		var targets: Array[Standable] = []
+		for thing in floor_things:
+			if thing.right > from.right:
+				targets.append(thing)
+				break
+		var nearest: Standable = null
+		for thing in platform_things:
+			if thing.right > from.right and (nearest == null or thing.left < nearest.left):
+				nearest = thing
+		if nearest != null:
+			targets.append(nearest)
+		var passes := false
+		for target in targets:
+			var distance := maxf((target.left - from.right) * Grid.TILE, 0.0)
+			var height := (from.row - target.row) * Grid.TILE
+			if height <= jump_reach(arc, distance):
+				passes = true
+		if not passes:
+			var edge := Vector2i(from.right - 1, from.row)
+			jump_failures.append(edge)
+			errors.append("%s: no jump onward from %s" % [from.name, edge])
+
+#endregion
+
+
+
+
+#region Guides
+
+## Draws the grid, the floor labels and the failing jumps into `guides`.
+func _draw_guides() -> void:
 	pass
+
+#endregion

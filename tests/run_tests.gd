@@ -457,3 +457,423 @@ func test_layout_all_errors_in_one_run() -> void:
 	check(l.ground == null, "nothing is built")
 
 #endregion
+
+
+#region Player movement (player-movement.md)
+
+## Waits until the player stands on the floor.
+func settle() -> void:
+	for i in 10:
+		await updated
+		if level.player.is_on_floor():
+			return
+
+
+func test_movement_walk_acceleration() -> void:
+	make(flat())
+	await settle()
+	press("move_right")
+	var speeds: Array[float] = []
+	for i in 45:
+		await updated
+		speeds.append(level.player.velocity.x)
+	var first := speeds.find_custom(func(v: float) -> bool: return v > 0.0)
+	check(speeds[first + 39] < Player.WALK_SPEED, "below top speed after 40 updates (%s)" % speeds[first + 39])
+	check_near(speeds[first + 40], Player.WALK_SPEED, "exactly top speed after 41")
+
+
+## Holds jump for `hold` updates (0: until landing); returns [peak, updates
+## until back on the floor], counting the jump's own update as 1.
+func _jump(hold: int) -> Array[float]:
+	await settle()
+	var start_y := level.player.position.y
+	press("jump")
+	var peak := 0.0
+	var updates := 0
+	while updates < 200:
+		await updated
+		updates += 1
+		if updates == hold:
+			release("jump")
+		peak = maxf(peak, start_y - level.player.position.y)
+		if updates > 1 and level.player.is_on_floor():
+			break
+	release("jump")
+	return [peak, updates]
+
+
+func test_movement_full_jump() -> void:
+	make(flat())
+	var result := await _jump(0)
+	check_near(result[0], 82.6, "peak height", 1.0)
+	check_equal(int(result[1]), 56, "back on the floor after 56 updates")
+
+
+func test_movement_short_jump() -> void:
+	make(flat())
+	var result := await _jump(1)
+	check_near(result[0], 25.45, "peak height", 1.0)
+	check_equal(int(result[1]), 20, "back on the floor after 20 updates")
+
+
+func test_movement_wall() -> void:
+	make(func(l: Level) -> void: l.floors = [Vector2i(3, 12), Vector2i(27, 8)])
+	await settle()
+	press("move_right")
+	var touched := false
+	var all_zero := true
+	var all_idle := true
+	var bounces := 0
+	var tween: Tween = null
+	for i in 120:
+		await updated
+		var p := level.player
+		if p.is_on_wall():
+			touched = true
+		if touched:
+			if p.velocity.x != 0.0:
+				all_zero = false
+			if p.state != Player.State.IDLE:
+				all_idle = false
+			if p.squash._tween != tween:
+				tween = p.squash._tween
+				bounces += 1
+	check(touched, "reaches the wall")
+	check(all_zero, "velocity.x is 0 on every update against the wall")
+	check(all_idle, "Idle on every update against the wall")
+	check_equal(bounces, 1, "the wall bounce plays once")
+
+
+func test_movement_facing() -> void:
+	make(flat())
+	await settle()
+	check(level.player.sprite.flip_h, "starts facing right")
+	press("move_right")
+	await wait(3)
+	check(level.player.sprite.flip_h, "right held: facing right")
+	release("move_right")
+	press("move_left")
+	await updated
+	check(not level.player.sprite.flip_h, "left held: facing left at once")
+	release("move_left")
+	await wait(3)
+	check(not level.player.sprite.flip_h, "nothing held: keeps facing")
+
+
+func test_movement_falls_and_lands() -> void:
+	make(flat())
+	await settle()
+	check_equal(level.player.state, Player.State.IDLE, "standing: Idle")
+	press("move_right")
+	await wait(5)
+	check_equal(level.player.state, Player.State.WALK, "walking: Walk")
+	check(level.player.sprite.animation == "walk", "walk animation")
+
+#endregion
+
+
+#region Player animation (player-animation.md)
+
+func test_animation_walk_rate() -> void:
+	make(flat())
+	await settle()
+	press("move_right")
+	var first_frame := -1
+	for i in 60:
+		await updated
+		if first_frame == -1 and level.player.state == Player.State.WALK:
+			first_frame = level.player.sprite.frame
+	check_equal(first_frame, 1, "Idle to Walk starts on sprite_2")
+	check_near(level.player.sprite.speed_scale * Player.WALK_FPS, 15.0, "top speed: 15 fps")
+	check_near(remap(50.625, 0, Player.WALK_SPEED, 4.3, 15), 9.65, "half speed: 9.65 fps")
+	press("jump")
+	await wait(2)
+	check_equal(level.player.sprite.speed_scale, 1.0, "Walk to Rise: speed_scale back to 1")
+	check(level.player.sprite.animation == "air", "Rise shows sprite_2")
+	check(not level.player.sprite.is_playing() or level.player.sprite.sprite_frames.get_frame_count("air") == 1,
+			"Rise: not animating")
+
+#endregion
+
+
+#region Camera (camera.md)
+
+func test_camera_start() -> void:
+	make(flat())
+	check_equal(level.player.position, Vector2(81, 216), "player at (81, 216)")
+	check_near(level.camera.left_edge, 0.0, "camera's left edge at 0")
+	check_equal(Screen.half_width, 229.5, "half width")
+	check_equal(Screen.half_height, 128.5, "half height")
+
+
+func test_camera_follows_right_only() -> void:
+	make(flat())
+	await settle()
+	press("move_right")
+	await wait(240)
+	check_near(level.camera.position.x, level.player.position.x, "follows the player right")
+	release("move_right")
+	press("move_left")
+	var turned_at := -1.0
+	for i in 120:
+		await updated
+		if turned_at < 0 and level.player.velocity.x < 0:
+			turned_at = level.camera.position.x
+	check_near(level.camera.position.x, turned_at, "stays still once the player moves left")
+
+
+func test_camera_left_edge() -> void:
+	make(flat())
+	await settle()
+	press("move_left")
+	await wait(120)
+	check_near(level.player.position.x, level.camera.left_edge, "player held at the left edge")
+	check(level.player.velocity.x < 0, "velocity.x untouched")
+
+
+func test_camera_level_end() -> void:
+	make(flat())
+	await settle()
+	level.player.position.x = level.level_end_x - 30
+	level.flag.position.x = level.level_end_x + 100
+	press("move_right")
+	await wait(90)
+	check_near(level.camera.right_edge, level.level_end_x, "camera's right edge at the level end")
+	check_near(level.player.position.x, level.level_end_x, "player stops at the level end")
+	check(level.player.velocity.x > 0, "velocity.x untouched")
+
+#endregion
+
+
+#region Player damage (player-damage.md)
+
+func test_damage_injury_and_invincibility() -> void:
+	make(flat())
+	await settle()
+	level.player.hurt()
+	check_equal(level.health, 1, "health 1")
+	check(get_tree().paused, "paused")
+	await wait(54)
+	check(get_tree().paused, "still paused at 0.9 s")
+	await wait(3)
+	check(not get_tree().paused, "unpaused after 0.92 s")
+	check(level.player.invincible, "invincible")
+	var hidden: Array[bool] = []
+	for i in 6:
+		await updated
+		hidden.append(not level.player.sprite.visible)
+	check_equal(hidden, [true, false, true, false, true, false], "flickers, hidden on updates 1, 3, 5")
+	await wait(170)
+	check(not level.player.invincible and level.player.sprite.visible, "visible once invincibility ends")
+	check_equal(level.heart.frame, 1, "heart shows 1 health")
+
+
+func test_damage_death() -> void:
+	make(flat())
+	await settle()
+	level.player.sprite.flip_h = false
+	level.health = 1
+	level.player.hurt()
+	check(get_tree().paused, "paused")
+	check(not level.player.visible and level.player.process_mode == Node.PROCESS_MODE_DISABLED,
+			"player hidden and disabled")
+	var death: PlayerDeath = level.effects.get_child(0)
+	check(death != null and death.position == level.player.position, "death scene at the player")
+	check(not (death.get_child(0) as Sprite2D).flip_h, "same flip_h")
+	await wait(17)
+	check_near(death.velocity.y, -PlayerDeath.JUMP_SPEED + PlayerDeath.GRAVITY / 60.0, "death jump starts after 0.27 s", 0.01)
+	check(get_tree().paused, "still paused")
+	await wait(120)
+	check(death.position.y > level.player.position.y + 18, "falls through the floor")
+	check_equal(level.heart.frame, 0, "heart empty")
+
+
+func test_damage_death_line() -> void:
+	make(func(l: Level) -> void: l.floors = [Vector2i(5, 12), Vector2i(4, 15), Vector2i(21, 12)])
+	await settle()
+	level.player.invincible = true
+	level.player.position = Vector2(220, 200)
+	var died := false
+	for i in 60:
+		await updated
+		if level.player.process_mode == Node.PROCESS_MODE_DISABLED:
+			died = true
+			break
+	check(died, "dies at the death line, even invincible")
+	check(level.player.position.y >= 257, "feet reached y 257")
+	check_equal(level.health, 0, "health 0")
+
+
+func test_damage_water_death_line() -> void:
+	make(func(l: Level) -> void:
+		l.floors = [Vector2i(5, 12), Vector2i(4, 13), Vector2i(21, 12)]
+		l.has_water = true)
+	await settle()
+	level.player.position = Vector2(220, 200)
+	var alive_at_surface := false
+	for i in 60:
+		await updated
+		if level.player.position.y >= 234 and level.player.process_mode != Node.PROCESS_MODE_DISABLED:
+			alive_at_surface = true
+		if level.player.process_mode == Node.PROCESS_MODE_DISABLED:
+			break
+	check(alive_at_surface, "alive below the water's surface")
+	check(level.player.position.y >= 257 and level.player.process_mode == Node.PROCESS_MODE_DISABLED,
+			"dies at y 257")
+
+#endregion
+
+
+#region Flag (flag.md)
+
+func test_flag_place() -> void:
+	make(func(l: Level) -> void: l.floors = [Vector2i(9, 12)])
+	check_equal(level.level_end_x, 468, "level_end_x")
+	check_equal(level.flag.position, Vector2(288, 0), "flag at x 288")
+	var sprite: AnimatedSprite2D = level.flag.get_child(0)
+	check(sprite.is_playing() and sprite.sprite_frames.get_animation_speed("wave") == 7.5, "animates at 7.5 fps")
+
+
+func test_flag_win() -> void:
+	make(flat())
+	await settle()
+	level.player.position.x = level.win_x - 1.5
+	await updated
+	check(not get_tree().paused, "one pixel before: not won")
+	level.player.position.x = level.win_x
+	level.player.invincible = true
+	level.player.sprite.visible = false
+	await updated
+	check(get_tree().paused, "won: paused")
+	check(level.player.sprite.visible, "sprite visible")
+
+
+func test_flag_death_beats_win() -> void:
+	make(func(l: Level) -> void: l.floors = [Vector2i(5, 12), Vector2i(4, 15), Vector2i(21, 12)])
+	await settle()
+	level.flag.position.x = 225
+	level.player.position = Vector2(226, 260)
+	await updated
+	check(level.player.process_mode == Node.PROCESS_MODE_DISABLED, "dies, does not win")
+	check_equal(level.effects.get_child_count(), 1, "the death scene plays")
+
+#endregion
+
+
+#region HUD and iris (hud.md, game-flow.md)
+
+func test_hud_heart() -> void:
+	make(flat())
+	check_equal(level.heart.frame, 2, "starts at 2 health")
+	check_equal(level.heart.position, Vector2(433, 20), "top-left at (433, 20)")
+	check(level.heart.get_parent() is CanvasLayer, "fixed to the screen")
+	level.health = 1
+	check_equal(level.heart.frame, 1, "follows health")
+
+
+func test_iris_positions() -> void:
+	make(flat())
+	var iris: Iris = load("res://levels/iris.tscn").instantiate()
+	iris.setup(level)
+	add_child(iris)
+	check_equal(iris.target(), Vector2(81, 208.5), "target")
+	iris._put(iris._shut_positions())
+	check_equal([iris._top.position, iris._right.position, iris._bottom.position, iris._left.position],
+			[Vector2(0, -48.5), Vector2(81, 0), Vector2(0, 208.5), Vector2(-378, 0)], "shut")
+	iris._put(iris._open_positions())
+	check_equal([iris._top.position, iris._right.position, iris._bottom.position, iris._left.position],
+			[Vector2(0, -257), Vector2(459, 0), Vector2(0, 257), Vector2(-459, 0)], "open")
+	iris.close()
+	await wait(15)
+	check_near(iris._right.position.x, (459 + 81) / 2.0, "halfway: halfway between", 6.0)
+	check_equal(iris.layer, 2, "in front of the HUD")
+	iris.free()
+
+
+func test_level_is_main() -> void:
+	make(flat())
+	check(not level.is_main, "a test level is not main")
+	check(level.iris == null and not get_tree().paused, "no iris, not paused")
+
+#endregion
+
+
+#region Jump check (level-layout.md)
+
+func test_jumps_gaps() -> void:
+	var l := make(func(l: Level) -> void: l.floors = [Vector2i(10, 12), Vector2i(5, 15), Vector2i(10, 12)])
+	check(l.errors.is_empty(), "same row, 5-tile gap: passes")
+	level.free()
+	l = make(func(l: Level) -> void: l.floors = [Vector2i(10, 12), Vector2i(6, 15), Vector2i(10, 12)], true)
+	check(has_error(l, "floors[0] (columns 7 to 16, row 12): no jump onward from (16, 12)"), "6-tile gap fails")
+	check(l.ground == null, "nothing built")
+	level.free()
+	l = make(func(l: Level) -> void: l.floors = [Vector2i(10, 12), Vector2i(6, 15), Vector2i(10, 12), Vector2i(6, 15), Vector2i(4, 12)], true)
+	check_equal(l.errors.size(), 2, "two failing jumps, both reported")
+	level.free()
+	l = make(func(l: Level) -> void: l.floors = [Vector2i(10, 12), Vector2i(6, 12), Vector2i(6, 15)], true)
+	check(has_error(l, "floors[1] (columns 17 to 22, row 12): no jump onward"), "6-tile gap onto the end floor fails")
+
+
+func test_jumps_heights() -> void:
+	var l := make(func(l: Level) -> void: l.floors = [Vector2i(10, 12), Vector2i(10, 8)])
+	check(l.errors.is_empty(), "4 rows higher: passes")
+	level.free()
+	l = make(func(l: Level) -> void: l.floors = [Vector2i(10, 12), Vector2i(10, 7), Vector2i(10, 12)], true)
+	check(has_error(l, "floors[0]"), "5 rows higher: fails")
+	level.free()
+	l = make(func(l: Level) -> void: l.floors = [Vector2i(10, 12), Vector2i(1, 15), Vector2i(1, 12), Vector2i(10, 12)])
+	check(l.errors.is_empty(), "1 wide, same row, 1-tile gap: passes")
+
+
+func test_jumps_table() -> void:
+	# The reference table: [rows higher, furthest gap that passes].
+	var table := [[4, 3], [3, 4], [1, 4], [0, 5], [-2, 5], [-3, 6], [-4, 6], [-5, 7], [-7, 7], [-8, 8],
+			[-10, 8], [-11, 9], [-12, 9], [-13, 10], [-14, 10]]
+	var arc := Level.jump_arc()
+	for row in table:
+		var height: float = row[0] * Grid.TILE
+		var gap: int = row[1]
+		check(height <= Level.jump_reach(arc, gap * Grid.TILE) and height > Level.jump_reach(arc, (gap + 1) * Grid.TILE),
+				"%d rows higher: furthest %d tiles" % [row[0], gap])
+	check(5 * Grid.TILE > Level.jump_reach(arc, 0), "5 rows higher: unreachable")
+
+
+func test_jumps_platforms() -> void:
+	var l := make(func(l: Level) -> void:
+		l.floors = [Vector2i(10, 12), Vector2i(7, 15), Vector2i(10, 12)]
+		l.platforms = [PlatformSpawn.new(Vector2i(20, 12), 3)])
+	check(l.errors.is_empty(), "7-tile gap with a platform 3 into it: passes")
+	level.free()
+	l = make(func(l: Level) -> void:
+		l.floors = [Vector2i(10, 12), Vector2i(7, 15), Vector2i(10, 12)], true)
+	check(has_error(l, "floors[0]"), "the same without the platform: fails")
+	level.free()
+	l = make(func(l: Level) -> void:
+		l.floors = [Vector2i(10, 12), Vector2i(7, 15), Vector2i(10, 12)]
+		l.platforms = [PlatformSpawn.new(Vector2i(18, 6), 2), PlatformSpawn.new(Vector2i(20, 12), 3)], true)
+	check(has_error(l, "floors[0]"), "an unreachable platform just ahead hides a reachable one")
+	level.free()
+	l = make(func(l: Level) -> void:
+		l.floors = [Vector2i(10, 12), Vector2i(10, 5), Vector2i(10, 5)]
+		l.platforms = [PlatformSpawn.new(Vector2i(15, 8), 4)])
+	check(l.errors.is_empty(), "a platform 4 rows up over the edge, then a floor 3 rows above it: passes")
+	level.free()
+	l = make(func(l: Level) -> void:
+		l.floors = [Vector2i(20, 12)]
+		l.platforms = [PlatformSpawn.new(Vector2i(10, 8), 3)])
+	check(l.errors.is_empty(), "a platform over a floor that runs on: passes")
+	level.free()
+	l = make(func(l: Level) -> void:
+		l.floors = [Vector2i(10, 10), Vector2i(6, 15), Vector2i(10, 12)]
+		l.platforms = [PlatformSpawn.new(Vector2i(17, 12), 2)])
+	check(l.errors.is_empty(), "a platform 2 rows below at the take-off: passes")
+
+
+func test_jumps_only_after_other_checks() -> void:
+	var l := make(func(l: Level) -> void:
+		l.floors = [Vector2i(10, 12), Vector2i(6, 15), Vector2i(10, 12)]
+		l.coins = [Vector2i(1, 5)], true)
+	check_equal(l.errors.size(), 1, "only the coin's error")
+
+#endregion
