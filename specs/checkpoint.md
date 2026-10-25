@@ -33,13 +33,10 @@ The flag images are 18 × 257: tile row 0 is empty, row 1 holds the cloth
 
 - The level script's `checkpoints` field, an `Array[Vector2i]` of cells
   (`level-layout.md`), like the doors. In the `Checkpoints` layer node.
-- Checked before the build (`level-layout.md`, Checking the layout): its
-  column is between the start and the flag; it takes **two cells**, its
-  own and the one above, shared with nothing (Occupied cells); and the
-  cell **under** it is ground or a platform, never air, a gap or a block
+- It takes **two cells**, its own and the one above, and the cell
+  **under** it must be ground or a platform, never air, a gap or a block
   (a block can break), so the player always respawns standing on
-  something. That check uses the cells in the list itself, before
-  anything is built.
+  something (`level-layout.md`, Checking the layout).
 - **Its own cell:** a checkpoint is just a cell in the list, so like the
   other kinds that are only cells it gets no settings in `setup()`
   (`level-layout.md`, Building a thing). It works the cell out from its
@@ -118,4 +115,3 @@ The player calls `touch()` (`player-contact.md`, Checkpoints):
 | Two checkpoints touched, then a death | The player starts at the one touched last; after the reload it is raised and the other is down |
 | Player wins after touching a checkpoint | The next level starts at its start floor: `Level.respawn_cell` is `PLAYER_CELL` |
 | Walker, diamond or spring passes a checkpoint | Nothing happens |
-| Checkpoint over a gap, over air or over a block | The build stops with an error |

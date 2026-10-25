@@ -22,9 +22,8 @@ Coordinates are (column, row):
   `cell.y` up to row `cell.y - height + 1`.
 - Anywhere, like a door: on the ground, floating, from a floor up to a
   ledge. Nothing has to be under it.
-- Checked before the build (`level-layout.md`, Checking the layout):
-  `height` is 1 or more, its column is between the start and the flag, and every cell it
-  covers is shared with nothing (Occupied cells).
+- `height` is 1 or more, and every cell it covers is its own
+  (`level-layout.md`, Checking the layout).
 
 ## Drawing
 
@@ -55,31 +54,15 @@ Coordinates are (column, row):
 
 ## Climbing
 
-The player's side is in `player-movement.md` (the Climb state). In short:
-
-- **On a ladder:** the cell under the point 1 px above the player's feet
-  (`position + Vector2(0, -1)`) is a ladder cell. Only the origin counts,
-  like the crusher's check (`enemy-crusher.md`): the player must be lined
-  up with the ladder, not just touching its edge.
-- **Climbing:** `move_up` is held while on a ladder. Then `velocity.y` is
-  set straight to **-67.5** (up), with no gravity, and the player moves
-  with `move_and_slide()` as usual, so ground or a block above stops it.
-- **The top:** before moving, if the ladder cell the player is on has no
-  ladder cell above it, its top (`cell.y * Grid.TILE`) is the limit. After
-  `move_and_slide()`, the feet are put no higher than that:
-  `position.y = maxf(position.y, limit)`. So the feet stop exactly on top
-  of the cap. There, the point above the feet is no longer in a ladder
-  cell, so climbing ends, gravity comes back, and the player lands on the
-  cap's one-way top and stands there (Idle). Holding up there does
-  nothing: there is no flickering in and out of Climb.
-- **Letting go:** releasing up, or walking sideways off the ladder's
-  column, ends climbing. On the next update the upward speed is dropped
-  (`velocity.y = 0` before gravity), so the player simply falls.
-- **No bonk while climbing:** pushing up against a block every update
-  would hit it every update, so a climbing player never bonks blocks
-  (`breakable-block.md`, Hitting a block). It just stops under it.
-- Sideways walking works as normal while climbing (`player-movement.md`,
-  Walking).
+The player's side is in `player-movement.md` (Climbing, and the Climb
+state). In short: it climbs at 67.5 px/s while `move_up` is held and the
+point 1 px above its feet is in a ladder cell (only the origin counts, so
+it must be lined up with the ladder, not just touching its edge), stops
+with its feet exactly on the cap's top and stands there, and falls when it
+lets go or walks off the ladder's column. Ground or a block above stops it
+like any ceiling, and a climbing player never bonks a block
+(`breakable-block.md`, Hitting a block): pushing up against one every
+update would hit it every update.
 
 Tested with a prototype on Godot 4.7.2: climbing a 4-cell ladder stops
 with the feet exactly on the cap's top and stays standing there with up
@@ -108,6 +91,4 @@ check). Every level must still be crossable by jumping alone.
 | Player jumps up through a ladder's top | Passes through |
 | Walker reaches a ladder | Passes through its body; lands on its cap if it falls onto it |
 | Enemy touches a climbing player | Player is hurt (Climb is not Fall, so no stomp) |
-| Ladder `height` 0, or a cell in the start or flag area, or outside the level | The build stops with an error |
-| Ladder cell on ground, a block, a platform or anything placed (other than a bar, flyer or leaper) | The build stops with an error naming both |
 | A level only crossable with a ladder | The jump check fails: ladders are not part of it |

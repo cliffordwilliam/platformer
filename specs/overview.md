@@ -96,10 +96,23 @@ Godot's own updates, not against copies of the code.
 - They live in `res://tests/`. One runner scene,
   `res://tests/run_tests.tscn`, runs every `test_` function of its
   script, one after another, and prints one line per check.
-- Run: `godot --path . res://tests/run_tests.tscn`, **with a window**
-  (enemies, the diamond and springs never switch on with `--headless`,
-  see above). Anything after `--` picks only the tests whose name holds
-  it: `godot --path . res://tests/run_tests.tscn -- ladder`.
+- Run: `timeout 600 godot --path . res://tests/run_tests.tscn`, **with a
+  window** (enemies, the diamond and springs never switch on with
+  `--headless`, see above), and **always with a time limit**: a test
+  script that fails to parse never runs, so nothing quits and the run
+  hangs with no exit code. Check a script parses before running it:
+  `godot --headless --path . --check-only -s res://tests/run_tests.gd`
+  exits with code 1 and prints the parse error if it doesn't, 0 if it
+  does (tested on 4.7.2).
+- **Tests are named after their spec:** `test_<spec>_<case>`, with the
+  spec's file name in snake case (`test_player_movement_full_jump`,
+  `test_ladder_climb_to_top`). Anything after `--` picks only the tests
+  whose name holds it, so one spec's tests run on their own:
+  `godot --path . res://tests/run_tests.tscn -- ladder`. Run a spec's own
+  tests while working on it, and the whole suite before each commit.
+  With nothing after `--`, every test runs. Check for an empty filter
+  first: in GDScript `"" in "abc"` and `"abc".contains("")` are false
+  (tested on 4.7.2), so a bare `filter in name` matches nothing.
 - **One run shows every failure:** every test runs, whatever happened in
   the ones before, and a failed check never stops the run. At the end the
   runner calls `get_tree().quit(1)` if any check failed, `quit(0)` if none
@@ -110,10 +123,24 @@ Godot's own updates, not against copies of the code.
   it needs. The test adds the level, plays it by holding keys with the
   built-in `Input.action_press()` and `Input.action_release()`, and waits
   whole updates.
+- **Wait one update before the first input:** `is_on_floor()` is false
+  until a body's first `move_and_slide()`, so a jump pressed on the update
+  the level is added never happens. A test waits one update after adding
+  the level before pressing anything.
+- **A flat test floor:** `floors = [Vector2i(30, 12)]` is flat ground from
+  the start floor (row 12) to the end floor. Use it unless the test needs
+  a step: a first floor on row 11, as in `level-layout.md`'s example,
+  puts a one-tile wall at column 7 that stops a player walking right.
 - **Waiting one update:** the runner's `process_physics_priority` is high
   (1000), so its `_physics_process` runs after every other node's; it
   emits a signal there, and a test awaits that signal to wait one update,
   with everything else's update for it already done.
+- **Automated or by eye:** every acceptance row is automated in the test
+  runner, except rows whose expected result starts with **By eye:**.
+  Those are about how a picture looks (an outline unbroken, no gaps, a
+  snapshot's guides and labels) and are checked by looking at a snapshot
+  or the running game. Draw order is automated: two things draw in the
+  order of the level's children, which a test can read.
 - **Decimal numbers are compared with a tolerance:** a check passes when
   `absf(actual - expected) <= 0.001`, unless its row gives its own (for
   example "within 1 px"). `Vector2` holds 32-bit numbers, so a value that
@@ -148,7 +175,9 @@ Godot's own updates, not against copies of the code.
   level also drops whatever was still waiting in it: tested on 4.7.2, a
   freed node's pending `await get_tree().create_timer(...).timeout` never
   resumes and prints no error, so an injury freeze cut short can never
-  unpause the next test.
+  unpause the next test. A test that builds several levels in turn does
+  the same between them: set `get_tree().paused = false` after freeing
+  each, or a hurt in one leaves the next one frozen.
 - **Two traps (tested on 4.7.2):**
   - The runner keeps going while the game is paused
     (`PROCESS_MODE_ALWAYS`), and a level added under it would inherit
@@ -298,6 +327,15 @@ Godot's own updates, not against copies of the code.
   Walkers get their own layer so they can bump into each other (turning
   around) without also bumping into the crusher. Springs do the same on
   their own layer, so they stack on each other and nothing else.
+- **Animations:** every looping `AnimatedSprite2D` animation runs at
+  **7.5 frames per second** (0.1333 s a frame, 8 updates at 60 per
+  second) and plays from its first frame, unless its spec gives another
+  rate. A sprite is a child of its thing, so it stops whenever the thing
+  is switched off or the game is paused, and carries on after.
+- **Random looks** (a door's, a gift block's, a platform's, every
+  decoration) use Godot's global random numbers, unseeded: they come out
+  differently on every build, except in a snapshot, which seeds them
+  (`level-layout.md`, Snapshot).
 - Sound is in `sound.md`: only the music and effects it lists, played
   where it says.
 - Do not add mechanics a spec does not describe.
@@ -368,3 +406,11 @@ Scripts with no scene: `res://screen.gd` (`Screen`), `res://grid.gd`
 (`Block`) and `res://effects/squash.gd` (`Squash`, `squash.md`). The
 title, the test runner and the snapshot keep the paths their specs give
 (`game-flow.md`, Tests above, `level-layout.md`, Snapshot).
+
+**Shared helpers are allowed.** Every scene builds its sprites, boxes and
+enablers in code, so the same few lines repeat. A helper several scripts
+use goes on the class it belongs with, as a `static func` (for example
+`Level.sprite_frames()`, building a `SpriteFrames` from art paths and
+rates), or on a base class the scripts already share (`WalkingBody`,
+`Block`). A helper adds no behaviour of its own: it only builds what a
+spec describes. No other new script files.

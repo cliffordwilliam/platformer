@@ -1,13 +1,13 @@
 # Level tiles
 
 The solid ground of every level: one autotiled tile sheet per biome
-(snow, grass, desert), painted with Godot's built-in terrains. Read `overview.md`
+(snow, desert, grass), painted with Godot's built-in terrains. Read `overview.md`
 first.
 
 ## Files
 
-- One PNG per biome: `res://art/solids/snow.png`, `res://art/solids/grass.png`,
-  `res://art/solids/desert.png`.
+- One PNG per biome: `res://art/solids/snow.png`, `res://art/solids/desert.png`,
+  `res://art/solids/grass.png`.
 - **Every biome sheet uses exactly the same layout.** Only the tiles with an
   open top differ in look: the single block, the ledge, the pillar top and
   the top row of the 3 × 3. All other tiles are pixel-for-pixel the same.

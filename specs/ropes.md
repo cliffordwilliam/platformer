@@ -106,7 +106,6 @@ to look like something the player could bonk into from below.
   its tile, so flipped it hangs from the top, from the mass.
 - The cell right below the main mass in the rope's column holds the cap,
   so it never gets a plant.
-- Not seeded, like the other decorations.
 
 ## Acceptance test
 
@@ -118,8 +117,8 @@ to look like something the player could bonk into from below.
 | Rope on a floor on row 8 | 6 cells in all, rows 2 to 7 |
 | Rope on a floor on row 13 | 11 cells in all, rows 2 to 12 |
 | Main mass | Rows 0 and 1, directly above the cap; 3 to 5 wide |
-| Supporting masses | One on each side, on row 0 only, 2 or 3 wide counting the main mass's edge column, merged with the main mass under one outline |
-| Top of the screen | No outline along row 0 over the mass |
+| Supporting masses | **By eye:** One on each side, on row 0 only, 2 or 3 wide counting the main mass's edge column, merged with the main mass under one outline |
+| Top of the screen | **By eye:** No outline along row 0 over the mass |
 | Underside | About 1 in 5 cells has an upside-down plant hanging below it; never in the cap's cell |
 | Player jumps into the mass, walkers, anything | Passes through: `collision_enabled` is false |
 | Draw order | Behind the pipes, decorations, ground and everything else; in front of the trees and the background |

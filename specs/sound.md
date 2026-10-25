@@ -84,6 +84,8 @@ copied unchanged and renamed after what it does:
 - **`play_and_wait(effect: Effect) -> void`**, a coroutine: plays the
   effect and returns when its player's built-in `finished` signal fires
   (`await level.sounds.play_and_wait(Sounds.Effect.WIN)`).
+- **`stop_all() -> void`** stops every effect's player (see Music,
+  Quitting while a sound plays).
 - **`wait(effect: Effect) -> void`**, a coroutine: returns at once if that
   effect is not playing, otherwise when it finishes.
 - **`process_mode = PROCESS_MODE_ALWAYS`** on `Sounds`, and so on its
@@ -126,11 +128,27 @@ copied unchanged and renamed after what it does:
     sounds are heard alone.
   - A death reloads the level, so after a retry the music starts again
     from the beginning.
-- **Stopped on the way out:** the title and the level stop `Music` and
-  set its `stream` to null in their `_exit_tree`. A track still playing
-  when the game quits is reported as leaked (`ERROR: 2 resources still
-  in use at exit`, tested on 4.7.2), and `overview.md` says to read the
-  output for `ERROR` lines.
+- **Quitting while a sound plays:** Godot frees a stopped sound a moment
+  after `stop()`, on its audio thread, so a game that quits while any
+  sound is playing (music or an effect) reports it as leaked (`ERROR:
+  Resources still in use at exit`). This is an open engine bug,
+  [godotengine/godot#76745](https://github.com/godotengine/godot/issues/76745),
+  still there on 4.7.2. So the game quits itself when the window is
+  closed, after stopping every sound:
+  - The title, and the level while `is_main`, set
+    `get_tree().auto_accept_quit = false` in their `_ready`, so closing
+    the window only sends `NOTIFICATION_WM_CLOSE_REQUEST`.
+  - On that notification it stops every sound it plays (the title: its
+    `Music` and its start sound; the level: its `Music` and every player
+    in `Sounds`, through `sounds.stop_all()`), then waits two frames
+    (`await get_tree().process_frame` twice; the signal fires while the
+    game is paused too), then calls `get_tree().quit()`.
+  - Tested on 4.7.2, closing the window ten times in each case: with music
+    and an effect playing, with the game paused or not, no leaks. Stopping
+    in `_exit_tree`, or stopping on the close request and quitting at
+    once, still leaked.
+  - Quits the code makes itself need nothing: a layout error quits before
+    any sound plays, and tests and snapshots play no music.
 - Only the default `Master` bus is used. There is no volume setting in
   the game.
 
@@ -175,3 +193,4 @@ These change the steps in `game-flow.md`:
 | A checkpoint raised | Checkpoint sound |
 | Any effect | Played at its `volume_db` from the table |
 | Tests and snapshots | No music; effects may play |
+| Window closed on the title or in a level, while music and an effect play, paused or not | Every sound stops; the game quits two frames later; no `Resources still in use at exit` error |

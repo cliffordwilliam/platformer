@@ -32,7 +32,7 @@ to the builder.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `biome` | `Level.Biome` (`SNOW`, `GRASS`, `DESERT`) | Which tile look the level uses |
+| `biome` | `Level.Biome` (`SNOW`, `DESERT`, `GRASS`, in that order: the same order as the background pictures, `background.md`) | Which tile look the level uses |
 | `floors` | `Array[Vector2i]` | The ground, left to right (see Floors) |
 | `has_water` | `bool` | Whether the level has water along the bottom (see Water) |
 | `blocks` | `Array[BlockSpawn]` | Breakable and gift blocks, in one list (`breakable-block.md`, `gift-block.md`) |
@@ -181,12 +181,8 @@ silent mistake.
 - A kind with no settings (coins, crushers, springs, doors, checkpoints) is just a list of cells.
   Leapers are just a list of columns: their row is always 14, behind the
   water (`enemy-leaper.md`).
-- **One thing per cell:** no two things share a cell, in any list or
-  across lists. Bars, flyers and leapers only check their own list (see
-  Checking the layout, Occupied cells).
-- **Between the start and the flag:** everything placed, from every list,
-  goes in columns 7 to the column left of the flag: never in the start or
-  flag area.
+- Everything placed goes between the start and the flag, one thing per
+  cell (bars, flyers and leapers aside): see Checking the layout.
 
 ### Checking the layout
 
@@ -346,6 +342,56 @@ lookup of taken cells:
   checks above still apply.
 - A walker or crusher in a free cell boxed in by ground is allowed: odd,
   but legal.
+
+#### Error messages
+
+Every message, word for word, so tests can match them exactly. `(c, r)`
+is a cell, `<thing>` a thing's name and `<floor>` a floor's name, as
+below. A thing that breaks one check in several of its cells gets one
+message for that check, for the first such cell.
+
+**Names:**
+
+| Name | For |
+|---|---|
+| `coin at (c, r)`, `spring at (c, r)`, `crusher at (c, r)`, `flyer at (c, r)`, `bar at (c, r)` | Those things, by their cell |
+| `breakable block at (c, r)`, `gift block at (c, r)` | Blocks, by their cell |
+| `walker at (c, r)` | A walker of any kind, by its cell, also for each other cell a walker B takes |
+| `door at (c, r)`, `checkpoint at (c, r)` | By their bottom cell; `top of door at (c, r)` and `top of checkpoint at (c, r)` for the cell above, named by the bottom cell |
+| `diamond above gift block at (c, r)` | The cell above a gift block holding a diamond, named by the block's cell |
+| `platform at (c, r)` | Every cell of a platform, named by its left end |
+| `ladder at (c, r)` | Every cell of a ladder, named by its bottom cell |
+| `leaper in column c` | A leaper |
+| `floors[i] (columns a to b, row r)` | A written floor (`i` counts from 0 in the list the level script wrote); `start floor`, `end floor` for the added two |
+| `floors[i] (row r)` | A written floor whose width is under 1, which has no columns |
+| `platforms[i] (columns a to b, row r)` | A platform in the jump check (`i` counts from 0 in `platforms`) |
+
+**Messages:**
+
+| Check | Message |
+|---|---|
+| A floor's width | `floors[i] (row r) has width w; it must be 1 or more` |
+| The level's width | `the level is n columns wide, start and end floors included; it must be 26 to 255` (the bounds written as `ceili(Screen.width / float(Grid.TILE))` and `10 * Screen.width / Grid.TILE`) |
+| Start area | `<thing> is in the start area` |
+| Flag area | `<thing> is in the flag area` |
+| Outside the level | `<thing> is outside the level` |
+| Gap line | `<thing> is below the gap line (row g)` |
+| Above the screen | `<thing> is above the screen` (walkers and springs) |
+| A platform's width | `platform at (c, r) has width w; it must be 1 or more` |
+| A ladder's height | `ladder at (c, r) has height h; it must be 1 or more` |
+| A bar's units | `bar at (c, r) has units u; it must be 0 or more` |
+| Under a checkpoint | `checkpoint at (c, r) has no ground or platform under it` |
+| A diamond on row 0 | `gift block at (c, r) holds a diamond on row r; it must be on row 1 or more` |
+| Leapers without water | `leaper in column c needs has_water on` (one per leaper) |
+| A flyer's path | `flyer at (c, r) with bob_distance d leaves the screen` (`d` as GDScript prints the float, e.g. `221.0`) |
+| An overlap | `<name of the cell's newcomer> overlaps <name of what took it first>`, e.g. `walker at (14, 6) overlaps coin at (14, 6)`, `top of door at (9, 8) overlaps floors[1] (columns 9 to 12, row 8)` |
+| Two bars or two flyers on one cell | `two bars at (c, r)`, `two flyers at (c, r)` |
+| Two leapers in one column | `two leapers in column c` |
+| A jump | `<floor or platform>: no jump onward from (c, r)`, `(c, r)` being its right edge's cell |
+
+The checks run in the order The checks lists them, with the overlaps in
+the order of Occupied cells and the duplicates right after them, and the
+jump check last, so `errors` always comes out in the same order.
 
 ### Cell to position
 
@@ -543,7 +589,7 @@ the ground, plus waterfalls when the level has water. Purely visual: the
 player and enemies never touch them.
 
 - One sheet per biome: `res://art/decorations/snow.png` (9 decorations),
-  `res://art/decorations/grass.png` (7) and `res://art/decorations/desert.png` (8). Each is one row of 18 × 18 tiles, no gaps; every
+  `res://art/decorations/desert.png` (8) and `res://art/decorations/grass.png` (7). Each is one row of 18 × 18 tiles, no gaps; every
   decoration stands on the bottom of its tile.
 - One decorations `TileSet` per biome: `tile_size` `Grid.TILE` × `Grid.TILE`, one atlas
   source (Texture Region Size 18 × 18, Separation 0, Margins 0), no physics
@@ -564,8 +610,6 @@ player and enemies never touch them.
   surface tile itself (covering it), waterfall body on every row below down
   to row 11, and its base on **row 12**, just above the water surface. It
   is drawn in front of the ground and behind the water.
-- The randomness is not seeded: decorations come out differently on every
-  build. That is fine.
 
 ### Big decorations
 
@@ -607,7 +651,7 @@ it looks like ground but nothing touches it.
   are **2 or more** wide, and the start row below is 14 or less (so a pair
   with a floor on row 14 never gets one: there is no room on screen).
 - **Chance:** each such pair gets a piece **half** the time
-  (`randf() < 0.5`). Not seeded, like the decorations.
+  (`randf() < 0.5`).
 - **Start row:** one row below the **lower** of the two surfaces:
   `maxi(previous.row, this.row) + 1`. So the piece is always inside solid
   ground, under both floors, and never reaches into the air the player
@@ -914,6 +958,9 @@ may go anywhere.
 
 ## Acceptance test
 
+This table holds the layout errors of every kind of thing. The other
+specs don't repeat them.
+
 | Case | Expected |
 |---|---|
 | `[Vector2i(30, 11)]` | `Ground` cells: the start floor in columns 0 to 6, rows 12 to 14; columns 7 to 36, rows 11 to 14; then the end floor in columns 37 to 46, rows 12 to 14; no other `Ground` cells |
@@ -929,15 +976,15 @@ may go anywhere.
 | A pair with a gap, or with a floor on row 14 | Never a piece |
 | A pair where either floor is a gap, with or without water (for example a gap on row 13 with water) | Never a piece |
 | A ground piece | Drawn in front of the ground and waterfalls, behind the water, blocks, enemies and the player; nothing collides with it (`collision_enabled` is false) |
-| Two overlapping pieces | Each on its own layer; the later one is drawn whole, outline included, over the earlier one |
+| Two overlapping pieces | **By eye:** Each on its own layer; the later one is drawn whole, outline included, over the earlier one |
 | A level with 2 pieces | `GroundPieces` holds `Piece0`, `Piece0Waterfalls`, `Piece0Decorations`, `Piece1`, `Piece1Waterfalls`, `Piece1Decorations`, in that order |
 | A long ground piece | About 1 in 5 cells of its top row has a plain decoration above it, from the level's biome, drawn in front of the ground |
-| A later piece drawn over an earlier piece's decoration | That decoration is hidden behind the later piece |
+| A later piece drawn over an earlier piece's decoration | **By eye:** That decoration is hidden behind the later piece |
 | A piece whose top row is 14 (or 13 with water) | No decorations on it |
 | `has_water` on, many pieces with top row 11 or less | About 1 in 5 top-row cells has a decoration or a waterfall; a waterfall's top covers the piece's top-row cell, body down to row 11, base on row 12, in front of the piece and behind the water |
 | `has_water` on, a piece with top row 12 | Plain decorations only, never a waterfall |
 | `has_water` off | No waterfall on any piece |
-| A later piece drawn over an earlier piece's waterfall | The waterfall is hidden behind the later piece |
+| A later piece drawn over an earlier piece's waterfall | **By eye:** The waterfall is hidden behind the later piece |
 | `has_water` off, a 3-column gap | A spike tile on row 13 of each of the 3 columns; nothing else in them |
 | Any spike | Spikes drawn from y 248 to 257: their base on the death line and the screen's bottom edge |
 | `has_water` on, a gap | No spikes: water on rows 13 and 14 |
@@ -958,11 +1005,11 @@ may go anywhere.
 | `has_water` on, leapers | Allowed: they are columns, always on row 14 |
 | Leaper rising from water | In front of waterfalls, behind the water |
 | Any `floors` | `level_end_x` = sum of widths × `Grid.TILE` |
-| Snapshot | Numbered grid and guides shown |
+| Snapshot | **By eye:** Numbered grid and guides shown |
 | Snapshot | No plain decorations, waterfalls, trees, pipes, ropes, ground pieces or plants under mushroom caps; ground, water, spikes, platforms, ladders and placed things as usual |
-| Two snapshots of different pages of the same level | Every platform, door and gift block looks the same in both, and so do the ground's fills |
+| Two snapshots of different pages of the same level | **By eye:** Every platform, door and gift block looks the same in both, and so do the ground's fills |
 | Snapshot | No iris, not paused by the level |
-| Snapshot of a level with walkers, flyers, leapers and a spring placed in the air | Every page shows each of them exactly where it was placed: nothing moves while the pages are written |
+| Snapshot of a level with walkers, flyers, leapers and a spring placed in the air | **By eye:** Every page shows each of them exactly where it was placed: nothing moves while the pages are written |
 | A level under a parent that always runs (the test runner or the snapshot), game paused | The level and everything in it stop, and carry on when the game is unpaused |
 | Many builds of a long level | No tree, pipe or rope is planted left of column 12 or right of the 6th column left of the flag, and none reaches into the start or flag area |
 | Snapshot with no `snapshots/` folder | Nothing written; create the folder first |
@@ -971,9 +1018,9 @@ may go anywhere.
 | Snapshot's last page | Camera's right edge at `level_end_x` |
 | Snapshot of a level 255 columns wide | One run writes `level_1_page00000000.png` to `level_1_page00000010.png`, 11 pages, each showing its own page; nothing more |
 | Snapshot of a level 26 columns wide | Pages 0 and 1 |
-| Snapshot, any floor | A yellow line on its left edge and its label, e.g. `[3] col 14`, `start` or `end`, in the cell above its surface |
-| Snapshot, a gap | Its label on row 12 |
-| Snapshot, `has_water` off, a floor on row 14 | Its label on row 13, the cell above its surface |
+| Snapshot, any floor | **By eye:** A yellow line on its left edge and its label, e.g. `[3] col 14`, `start` or `end`, in the cell above its surface |
+| Snapshot, a gap | **By eye:** Its label on row 12 |
+| Snapshot, `has_water` off, a floor on row 14 | **By eye:** Its label on row 13, the cell above its surface |
 | Normal run | No floor labels |
 | Coin at cell (8, 6) | `position` (144, 108) |
 | Walker at cell (8, 10) | `position` (153, 198): feet on top of row 11 |
@@ -1018,6 +1065,9 @@ may go anywhere.
 | A gift block holding a diamond on row 0 | The build stops with an error |
 | A spring on ground, a block, a coin or a walker's cell | The build stops with an error naming both |
 | A platform 0 wide | The build stops with an error |
+| A ladder 0 tall | The build stops with an error |
+| A ladder cell on ground, a block, a platform or anything placed (other than a bar, flyer or leaper) | The build stops with an error naming both |
+| A door with ground, a block or anything placed (other than a bar, flyer or leaper) in its cell or the cell above | The build stops with an error naming both |
 | A platform on ground, a block or another platform | The build stops with an error naming both |
 | Any platform | Drawn as one of its biome's looks (`one-way-platform.md`) |
 | Any leaper with `has_water` off | The build stops with an error |
@@ -1038,7 +1088,7 @@ may go anywhere.
 | Next floor 4 rows higher, no gap | Passes |
 | Next floor 5 rows higher, no gap | Fails |
 | Next floor 1 column wide, same row, 1-tile gap | Passes (the full-speed jump flies over it, but would land past its left edge) |
-| Snapshot | Grid and red markers drawn in front of the ground, blocks, water and everything else in the level |
+| Snapshot | **By eye:** Grid and red markers drawn in front of the ground, blocks, water and everything else in the level |
 | Same row, 7-tile gap, with a 3-wide platform on that row starting 3 tiles into the gap | Passes: the first floor reaches the platform, the platform reaches the next floor |
 | The same without the platform | Fails on the first floor: the build stops; in a snapshot, a red marker there and exit code 1 |
 | A high platform just ahead that can't be reached, and a reachable one starting further on | Fails: only the first platform ahead is tried (intended) |

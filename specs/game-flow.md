@@ -193,8 +193,6 @@ it calls `level.on_death()`:
 | Player wins the last level | The iris closes on the player; the title screen shows |
 | Player wins through a door | Same as the flag |
 | Player dies | The death jump plays; once it is below the screen the iris closes on where the player died; the level reloads with 2 health, everything back in place; black for 1 s, then the iris opens on the player |
-| Player dies with no checkpoint touched | Starts again on the start floor |
-| Player dies after touching a checkpoint | Starts again at that checkpoint (`checkpoint.md`) |
 | Player dies many times | The level reloads every time; no game over |
 | A level run by the tests or the snapshot | `is_main` is false: no iris, not paused at the start; a win or death only pauses the game |
 | A level that is the current scene | `is_main` is true |

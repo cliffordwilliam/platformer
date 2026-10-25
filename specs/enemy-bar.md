@@ -51,10 +51,9 @@ and reaches `units * 30` px out from the centre on each side.
 
 ## Body
 
-- One `Area2D` with `collision_layer` = `enemies` and `collision_mask` =
-  none: the player
-  can detect it, but it never blocks anything. Only the player touches it,
-  through the player's contact check (`player-contact.md`).
+- One `Area2D` on the `enemies` layer, masking nothing (`overview.md`,
+  Physics layers): it blocks nothing, and only the player's contact check
+  finds it (`player-contact.md`).
 - It never moves. Only its sprites and collision shapes move around it.
 
 ## Guides

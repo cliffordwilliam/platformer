@@ -21,8 +21,7 @@ All 18 × 18:
   (`level-layout.md`), which gives its cell and its contents.
 - **Its look** (A, B or C) is picked per block at build time, each equally
   likely, like the doors' (`door.md`): the level script never chooses it,
-  since it changes nothing but the picture. Like the decorations, the
-  randomness is not seeded. The block picks it itself in `setup()`, one
+  since it changes nothing but the picture. The block picks it itself in `setup()`, one
   scene for all three looks, and uses that variant's `sprite_1.png` and
   `sprite_2.png`.
 - It starts **glowing** (`res://art/gift_block_*/sprite_1.png`) and has a `used` flag, false at the

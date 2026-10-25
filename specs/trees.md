@@ -154,6 +154,6 @@ A tree may reach above the top of the screen. That is fine.
 | Supporting canopy | 2 or 3 wide, overlapping the main canopy's edge column and sticking out 1 or 2 columns past it; never 1 wide |
 | Any tree | Stump on the cell above a surface tile, 3 to 5 middle tiles, then the top |
 | A branch point | Its branch(es) in the same row, 1 or 2 tiles long, ending in a tip; right ones mirrored |
-| Main canopy | Bottom row on the trunk's top tile's row, covering it; 3 to 5 wide, 1 to 5 tall, outline unbroken |
-| Supporting canopies | One on each side, drawn in front of the main canopy with their own outlines |
+| Main canopy | **By eye:** Bottom row on the trunk's top tile's row, covering it; 3 to 5 wide, 1 to 5 tall, outline unbroken |
+| Supporting canopies | **By eye:** One on each side, drawn in front of the main canopy with their own outlines |
 | Trees | Drawn behind the ropes, the plain decorations and everything else, in front of the background |

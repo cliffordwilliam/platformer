@@ -84,7 +84,11 @@ launched by the spring: the spring's launch wins over the stomp's bounce.
     would stomp one and hurt the player. Checking all overlaps in one place
     avoids this.
   - The list is updated once per physics step, so it can be one update
-    behind. That is fine.
+    behind. That is fine, with one guard: **skip anything switched off**
+    (`not node.can_process()`). A thing switched off this update can
+    still be in the list: a coin just collected, an enemy just stomped, a
+    walker a kicked shell just knocked out. Without the guard it would be
+    collected, stomped or hurt the player a second time.
   - Everything here runs in the player's `_physics_process`, not inside a
     physics signal, so things can switch themselves off straight away, with
     no `set_deferred`.
@@ -186,7 +190,7 @@ Stomping works while the player is invincible too.
 | Player with 1 health touches a diamond and a crusher in the same update | Healed to 2, then hurt to 1: survives |
 | Player falls onto a walker and a coin in the same update | Coin collected and walker stomped |
 | Coins and diamonds | Have no `body_entered` connection |
-| Player reaches the flag's x while touching an enemy | Won; not hurt |
+| A walker knocked out by a kicked shell while overlapping the player, in the same update the player lands on it | Not stomped again: no stomp sound, no bounce from it |
 | Player falls onto a walker and a spring in the same update | Walker stomped, then launched: `velocity.y == -445.5`, state Spring |
 | Player touches a spring while already in Spring | Not launched again |
 | Player falls onto a walking walker B | It becomes a still shell; player bounces (state Bounce) |
@@ -197,7 +201,5 @@ Stomping works while the player is invincible too.
 | Player walks into a walking walker B | Player is hurt |
 | Player falls onto a walker C | Player is hurt; walker C is not stomped and the player does not bounce |
 | Invincible player falls onto a walker C | Nothing happens |
-| Player touches a checkpoint that is down | It is raised and becomes the respawn point (`checkpoint.md`) |
-| Player touches a raised checkpoint | Nothing happens |
 | Player with 1 health touches an enemy and a spring in the same update | Dies; not launched, no spring sound |
 | Player with 1 health touches an enemy and a checkpoint that is down in the same update | Dies; the checkpoint stays down |

@@ -16,6 +16,9 @@ right edges match, so copies side by side join without a seam.
 | `res://art/backgrounds/sprite_2.png` | `DESERT` |
 | `res://art/backgrounds/sprite_3.png` | `GRASS` |
 
+The pictures are numbered in the order of `Level.Biome` (`SNOW`, `DESERT`,
+`GRASS`), so a level's picture is `sprite_%d.png % (biome + 1)`.
+
 ## The node
 
 - `Background`, a built-in `Parallax2D`, the **first** of the level root's
@@ -49,7 +52,7 @@ right edges match, so copies side by side join without a seam.
 | Snow, desert or grass level | Shows `res://art/backgrounds/sprite_1.png`, `sprite_2.png` or `sprite_3.png` |
 | Level start (camera's left edge at 0) | The picture's left edge at the screen's left edge |
 | Camera moves 100 px right | The ground moves 100 px left on screen, the background 50 px |
-| Anywhere in a 10-screen level | The background covers the whole screen, with no gaps |
-| Snapshot of any page | Background at half the page's scroll, no gaps |
+| Anywhere in a 10-screen level | **By eye:** The background covers the whole screen, with no gaps |
+| Snapshot of any page | **By eye:** Background at half the page's scroll, no gaps |
 | Any level | Drawn behind the trees, pipes, decorations and everything else |
 | Player, enemies, anything | Never touch it |

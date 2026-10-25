@@ -29,11 +29,9 @@ the next level (`game-flow.md`, Winning).
 - **The variant** is picked by each door itself, in its `setup()`, like a
   gift block's look (`gift-block.md`): `sprite_1.png` or `sprite_2.png`,
   each equally likely (`randi_range(1, 2)`). The level script never
-  chooses it. Like the decorations, the randomness is not seeded (except
-  in a snapshot, `level-layout.md`, Snapshot).
-- Checked before the build (`level-layout.md`, Checking the layout): its
-  column is between the start and the flag, and it takes **two cells**, its own and the
-  one above (where its top reaches), shared with nothing (Occupied cells).
+  chooses it.
+- It takes **two cells**, its own and the one above, where its top
+  reaches (`level-layout.md`, Checking the layout).
 
 ## Body
 
@@ -45,17 +43,12 @@ the next level (`game-flow.md`, Winning).
 
 ## Winning through a door
 
-- The player checks it in its **win** step (`player-movement.md`, Each
-  update, step 7), together with the flag (`flag.md`, Winning): the level
-  is won when the player's `position.x` reaches `level.win_x` **or** any
-  `Door` is in its contact area's overlap list (`player-contact.md`,
-  Checking contact). So a door, like the flag, beats any contact in the
-  same update, and loses to the death line.
-- Winning through a door is exactly the same as winning at the flag
-  (`flag.md`, On winning): the game pauses, the player stays visible,
-  frozen where it is, and the level closes the iris and moves on.
-- Doors are not part of the jump check (`level-layout.md`): every level
-  must still be crossable to the flag. A door is only an extra.
+- In the player's **win** step, with the flag (`flag.md`, Winning): the
+  level is won when the player's `position.x` reaches `level.win_x`
+  **or** any `Door` is in its contact area's overlap list. The rest is
+  exactly as at the flag.
+- Doors are not part of the jump check: every level must still be
+  crossable to the flag. A door is only an extra.
 
 ## Acceptance test
 
@@ -69,6 +62,4 @@ the next level (`game-flow.md`, Winning).
 | Player touches a door and reaches the death line in the same update | Dies, does not win |
 | Player touches a door while touching an enemy | Wins; not hurt |
 | Walker, diamond or spring passes a door | Nothing happens |
-| Door with ground, a block or anything placed (other than a bar, flyer or leaper) in its cell or the cell above | The build stops with an error naming both |
-| Door in the start or flag area, or outside the level | The build stops with an error |
 | A level whose flag can't be reached by jumps, with a door before the gap | The jump check still fails: doors are not part of it |

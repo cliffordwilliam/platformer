@@ -24,15 +24,9 @@ The flag at the end of every level. Reaching it wins the level. Read
   (that column included): the level root sets
   `position = Vector2(level_end_x - 10 * Grid.TILE, 0)`, so the image runs
   from the top of the screen to the bottom.
-- The camera stops with its right edge at `level_end_x` (`camera.md`), so
-  the flag is always on the level's last screen, with 9 columns after it.
-- The checks before the build (`level-layout.md`, Checking the layout)
-  make sure the level is 1 to 10 screens wide and nothing is placed in the
-  flag area (the end floor's columns). The player always starts on the
-  start floor, at the other end (`level-layout.md`, Floors).
-- It always stands on ground: its column is the first of the **end floor**,
-  10 columns on row 12 that the level root adds after the written floors
-  (`level-layout.md`, Floors).
+- That is the first column of the **end floor** (`level-layout.md`,
+  Floors), so it always stands on ground, on the level's last screen, with
+  9 columns after it and nothing placed in them.
 - It goes in the level root's children right after `Decorations` and
   before `Ground`, so it is drawn **behind the ground**: wherever there is
   ground in front of the pole, the flag looks planted in it.

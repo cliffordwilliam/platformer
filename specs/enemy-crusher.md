@@ -38,6 +38,11 @@ stomped. Read `overview.md` first. "Crusher" is a working name.
   - `player.position.y > position.y` (y points down, so the player is
     lower).
 - It only watches while waiting at the start point.
+- **Timing:** `Crushers` comes before `Player` among the level's children
+  (`level-layout.md`, Building), so Godot runs the crusher's update first,
+  and it sees where the player was at the end of the previous update. In
+  the update where it first sees the player below it, it switches to Fall
+  and does not move yet. It moves from its next update on.
 
 ## Each update
 
@@ -90,7 +95,7 @@ No animation plays: it only swaps between the two sprites.
 | Case | Expected |
 |---|---|
 | Player not below it | Stays still at the start point |
-| Player walks under it | Starts falling on the next update |
+| The player's origin first ends an update under it (update `n`) | The crusher switches to Fall in update `n + 1`, without moving, and first moves down in update `n + 2` |
 | Player level with it or above it, lined up sideways | Stays still |
 | Player below it, but not lined up sideways | Stays still |
 | Falling | Speed grows by 1923.75 × delta each update, never above 270 |

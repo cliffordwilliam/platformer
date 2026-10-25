@@ -18,10 +18,9 @@ are only allowed in levels with water. Read `overview.md` first.
 
 ## Body
 
-- A leaper is an `Area2D` with `collision_layer` = `enemies` and
-  `collision_mask` = none: the player
-  can detect it, but it never blocks anything. Only the player touches it,
-  through the player's contact check (`player-contact.md`).
+- An `Area2D` on the `enemies` layer, masking nothing (`overview.md`,
+  Physics layers): it blocks nothing, and only the player's contact check
+  finds it (`player-contact.md`).
 - It moves by changing `position`.
 - It never moves sideways.
 
@@ -44,8 +43,11 @@ if leaping now: velocity.y = -421.86
 position.y += velocity.y * delta
 ```
 
-1. **Leap.** The leaper leaps on its first update after being switched on,
-   and again each time its wait ends.
+1. **Leap.** The leaper leaps on the first update it ever runs, and again
+   each time its wait ends. It starts switched off and is switched on
+   once, when its column comes on screen; it only switches off again for
+   good, when its column leaves the screen to the left (see Switching on
+   and off), so "first update" can't mean anything else.
 2. **Back at the start.** When it falls back to the start point
    (`position.y >= start_y`), it is put exactly on the start point
    (`position.y = start_y`), its `velocity.y` is set to 0, and it stops.
@@ -95,11 +97,8 @@ everything and off the screen.
 
 - One animation: `res://art/leaper/sprite_1.png` and `res://art/leaper/sprite_2.png`, looping, all the time while switched
   on (also while waiting and while falling).
-- Shown with an `AnimatedSprite2D`. Each sprite shows for 0.133 s, so the
-  animation runs at **7.5 frames per second** (1 / 7.5 = 0.1333 s, which is
-  8 updates at 60 per second). It loops and plays from the start.
-- It is a child of the enemy, so it stops whenever the enemy is switched off
-  or the game is paused, and carries on afterwards.
+- An `AnimatedSprite2D` at 7.5 frames per second (`overview.md`,
+  Animations).
 
 ## Acceptance test
 

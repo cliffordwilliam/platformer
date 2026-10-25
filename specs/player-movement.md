@@ -145,6 +145,11 @@ Decided after `move_and_slide()`:
 | Spring | Not on the floor and `velocity.y < 0`, after a spring launch (see `spring.md`) |
 | Fall | Not on the floor and `velocity.y >= 0` (this includes right after hitting a ceiling) |
 
+A rising player keeps the rising state it already has (Rise, Bounce or
+Spring) until it falls or lands, and a new jump, stomp or spring sets the
+new one. If it is rising with none of them behind it (nothing in this
+game should cause that, but the code must still choose), it is in Rise.
+
 Rise, Bounce and Spring all rise. The only difference is gravity: Bounce
 always uses heavy gravity, Spring always light gravity, and Rise light
 gravity only while jump is held. The player can only stomp while in Fall
@@ -175,7 +180,7 @@ tuning of the game feel.
 | Standing still, then right held | `velocity.x` is below 101.25 after 40 updates and exactly 101.25 after 41 |
 | Jump held from the start until landing | Peak height 82.6 px above the start, back on the floor after 56 updates |
 | Jump held for exactly 1 update, then released | Peak height 25.45 px above the start, back on the floor after 20 updates |
-| Walking into a wall and holding the direction | `velocity.x` is 0 after every update; state Idle on every update; the wall bounce plays once |
+| Walking into a wall and holding the direction | From the first update that ends with `is_on_wall()` true, and on every update after it while the direction stays held: `velocity.x` is 0 and the state is Idle at the end of the update. The wall bounce plays once, on that first update |
 | Start; right held; left held | `flip_h` true; true; false |
 | Up held at the bottom of a 4-cell ladder | Climbs at 67.5 px/s; the feet stop exactly on the ladder's top, then Idle, standing there with up still held |
 

@@ -1,8 +1,11 @@
 # How the run was measured
 
-The `build` branch holds a game Claude built from this repository in one
-recorded run. This folder says how that run was set up and measured, so
-the numbers in its commits can be checked and repeated.
+Two recorded runs built the game from this repository, each on its own
+branch: `build` from the spec at tag `v1`, and `build-v2` from tag `v2`,
+the spec revised from the first run's own feedback. This folder says how
+the runs were set up and measured, so the numbers in their commits can be
+checked and repeated. Both runs used the same prompt, rules and meter;
+only the specs changed.
 
 ## The setup
 
@@ -11,13 +14,14 @@ the numbers in its commits can be checked and repeated.
   repository, and say when it's done. Anyone can run it: clone `main`,
   open Claude Code in it and say "Read PROMPT.md and do what it says."
 - **The recorded run** got the same prompt plus the rules in
-  `recording-rules.md`: work on a `build` branch, make small commits, end
+  `recording-rules.md`: work on the run's own branch, make small commits, end
   each commit message with a meter reading, start from the repository
   alone.
 - **A fresh start:** a new Claude Code session that had never seen these
   specs. Claude's memory from earlier sessions was off limits, and the
   practice build made while writing the specs was moved out of the
-  repository and out of reach before the run.
+  repository and out of reach before the first run. The second run was
+  told not to look at the first run's branch either.
 - **No waiting on a person:** bypass mode, so no step waited for approval
   and the clock only measures Claude's work.
 - **Subagents allowed:** Claude decided whether to use them. Their tokens

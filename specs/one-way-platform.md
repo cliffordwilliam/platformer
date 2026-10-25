@@ -74,10 +74,8 @@ tiles mirrored:
   order: each platform says where it starts, so there can be any space
   between platforms, and platforms on different rows may share columns
   (one above another). Only their cells must not overlap.
-- Checked before the build (`level-layout.md`, Checking the layout): every
-  width **1 or more**, like the floors; every platform cell inside the
-  level's columns; and no platform cell shared with anything else
-  (Occupied cells).
+- Every width is **1 or more**, like the floors (`level-layout.md`,
+  Checking the layout).
 - The level script never picks the look: it is random, per platform, at
   build time (see Picking the look).
 
@@ -89,8 +87,7 @@ For each platform, the candidates are:
 - Plus stone, only in the desert, any width.
 - Plus mushroom, only in the desert and only if `width` is 3 or more.
 
-The look is `pick_random()` from the candidates, each equally likely. Like the decorations, the
-randomness is not seeded: looks differ on every build. Every random number
+The look is `pick_random()` from the candidates, each equally likely. Every random number
 below is also a whole number from `randi_range(min, max)`, each value
 equally likely.
 
@@ -250,7 +247,4 @@ The rows about one look (wooden, cloud, stone, mushroom) draw it with
 | Player falls onto a platform, any look | Lands and stands on it |
 | Walker on a platform | Walks along it and falls off the end |
 | Player walks into a stalk | Passes through it |
-| Width 0 | The build stops with an error |
-| A platform cell in the start or flag area, or outside the level | The build stops with an error |
-| A platform cell on ground, a block, a coin, a walker, a crusher or another platform | The build stops with an error naming both |
 | Two platforms with empty columns between them | Allowed |

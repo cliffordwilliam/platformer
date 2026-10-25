@@ -10,14 +10,16 @@ built from that spec by Claude.
 - `PROMPT.md`: the prompt that builds the game from all of the above.
 - `measure/`: how the recorded build was measured, and the meter used.
 
-## Two branches
+## Branches and tags
 
 - **`main`:** the specs, the assets and the prompt. To build the game
   yourself, clone it, open Claude Code in it and say "Read PROMPT.md and
   do what it says."
-- **`build`:** the game Claude built from `main` in one recorded run, one
-  small commit per step, each ending with that run's time, tokens and
-  cost so far (`measure/README.md`).
+- **`v1` and `v2`:** tags on `main` marking the spec each recorded run was
+  built from. `v2` is `v1` revised from the first run's own feedback.
+- **`build`** and **`build-v2`:** the games Claude built from `v1` and `v2`,
+  one recorded run each, one small commit per step, each ending with that
+  run's time, tokens and cost so far (`measure/README.md`).
 
 ## Credits
 

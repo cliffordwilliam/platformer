@@ -32,11 +32,8 @@ How the camera follows the player. Read `overview.md` first.
 
 ## Level end
 
-- The level's root node holds where the level ends, `level_end_x`
-  (pixels): the right edge of the level's ground. It is worked out from the
-  level's floors, not typed in (see `level-layout.md`).
-- The player and the camera get the level root through `setup(level)`
-  (`level-layout.md`, Building a thing) and read `level.level_end_x`.
+- The level ends at `level.level_end_x`, the right edge of its ground
+  (`level-layout.md`, Level end, gap line and death line).
 
 ## Starting position
 

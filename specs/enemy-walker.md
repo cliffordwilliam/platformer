@@ -217,11 +217,8 @@ in `WALK`. Each stomp moves it on one state:
 ## Animation
 
 - **Walk:** `res://art/walker_*/sprite_1.png` and `res://art/walker_*/sprite_2.png`, looping, all the time while switched on (walker B: only in `WALK`).
-- Shown with an `AnimatedSprite2D`. Each sprite shows for 0.133 s, so the
-  animation runs at **7.5 frames per second** (1 / 7.5 = 0.1333 s, which is
-  8 updates at 60 per second). It loops and plays from the start.
-- It is a child of the enemy, so it stops whenever the enemy is switched off
-  or the game is paused, and carries on afterwards.
+- An `AnimatedSprite2D` at 7.5 frames per second (`overview.md`,
+  Animations).
 - `res://art/walker_*/sprite_3.png` is for the flattened scene (see
   Stomped), the bonked scene (`breakable-block.md`, Walker bonk death),
   and walker B's shell.
