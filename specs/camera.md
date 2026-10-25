@@ -105,7 +105,8 @@ player.position.x = clamp(player.position.x,
   can never push the player into a wall.
 - The right edge only matters at the level end. Before that, the camera
   keeps the player at or left of the middle of the screen.
-- The level is won when the player's x reaches the flag (`flag.md`).
+- The level is won when the player's x reaches the flag (`flag.md`), or
+  when it touches a door (`door.md`).
 
 ## Acceptance test
 

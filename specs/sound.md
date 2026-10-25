@@ -40,8 +40,8 @@ copied unchanged and renamed after what it does:
 | Effect | Plays when | `volume_db` |
 |---|---|---|
 | `JUMP` | The player starts a jump (`player-movement.md`); not a stomp bounce or a spring launch | +1.5 |
-| `STOMP` | The player stomps any enemy: flattening a walker, flyer or leaper, turning walker B into a still shell, or flattening a kicked shell. Once per update, however many are stomped | +8.7 |
-| `KICK` | A still shell is kicked, and when a kicked shell knocks out a walker (`enemy-walker.md`) | -2.6 |
+| `STOMP` | The player stomps any enemy: flattening a walker, flyer or leaper, turning walker B into a still shell, or flattening a kicked shell. Not a kick: the stomp that kicks a still shell plays `KICK` instead. Once per update, however many are stomped | +8.7 |
+| `KICK` | A still shell is kicked (instead of `STOMP`), and when a kicked shell knocks out a walker (`enemy-walker.md`) | -2.6 |
 | `COIN` | A placed coin is collected (`coins.md`), or a coin pops out of a gift block (`gift-block.md`) | -2.3 |
 | `DIAMOND` | A diamond comes out of a gift block (`diamond.md`) | -0.4 |
 | `HEAL` | The player collects a diamond | +4.3 |
@@ -158,7 +158,7 @@ These change the steps in `game-flow.md`:
 | The music reaches its end | It starts over without stopping |
 | Injury freeze | The hurt sound plays and the music keeps playing while the game is paused |
 | Player jumps | Jump sound |
-| Player bounces off a stomp or is launched by a spring | No jump sound; stomp or spring sound instead |
+| Player bounces off a stomp or is launched by a spring | No jump sound; the stomp sound (the kick sound for a kick) or the spring sound instead |
 | Player lands on two walkers at once | One stomp sound |
 | Player collects five coins in quick succession | The coin sound restarts each time; never five on top of each other |
 | Player dies | The music stops; the whole death jingle plays, then the iris closes |

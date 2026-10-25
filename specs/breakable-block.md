@@ -168,7 +168,7 @@ its centre (9, 9) (`assets.md`).
 
 | Case | Expected |
 |---|---|
-| Block at cell (2, 6) | `position` (36, 108) |
+| Block at cell (8, 6) | `position` (144, 108) |
 | Any block | `collision_layer` is `level`, `collision_mask` is none |
 | Player and walkers | Stand on and bump into a block like a ground tile |
 | Player jumps into a block from below | Block hidden and switched off; four chunks appear |

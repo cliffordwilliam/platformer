@@ -23,8 +23,9 @@ the next level (`game-flow.md`, Winning).
 
 - The level script's `doors` field, an `Array[Vector2i]` of cells
   (`level-layout.md`), like the coins. In the `Doors` layer node.
-- **Anywhere**, like a coin: on the ground, floating, behind a breakable
-  block, up high. Nothing has to be under it.
+- **Anywhere**, like a coin: on the ground, floating, walled in by
+  breakable blocks, up high. Nothing has to be under it. It never shares
+  a cell with a block or anything else (below).
 - **The variant** is picked per door at build time, `sprite_1.png` or
   `sprite_2.png`, each equally likely (`randi_range(1, 2)`). Like the
   decorations, the randomness is not seeded.
@@ -58,7 +59,7 @@ the next level (`game-flow.md`, Winning).
 
 | Case | Expected |
 |---|---|
-| Door at cell (5, 10) | `position` (90, 180): its bottom tile fills cell (5, 10), its top reaches into (5, 9) |
+| Door at cell (8, 10) | `position` (144, 180): its bottom tile fills cell (8, 10), its top reaches into (8, 9) |
 | Any door | Shows `res://art/door/sprite_1.png` or `sprite_2.png`, each about half the time over many builds |
 | Any door | `collision_layer` is `doors`, `collision_mask` is none |
 | Player touches a door, on the ground or in the air | Won: game paused, player frozen and visible where it is |

@@ -96,7 +96,7 @@ check). Every level must still be crossable by jumping alone.
 
 | Case | Expected |
 |---|---|
-| `LadderSpawn.new(Vector2i(5, 9), 4)` | Ladder cells (5, 6) to (5, 9): cap on (5, 6), body on rows 7 to 9 |
+| `LadderSpawn.new(Vector2i(8, 9), 4)` | Ladder cells (8, 6) to (8, 9): cap on (8, 6), body on rows 7 to 9 |
 | `LadderSpawn.new(cell, 1)` | One cell, the cap |
 | Player at the ladder's bottom, up held | State Climb, `velocity.y == -67.5`, rises 67.5 px per second |
 | Player climbs to the top, up still held | Feet stop exactly on the cap's top, then Idle standing on it; no flicker between states while up stays held |

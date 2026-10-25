@@ -70,7 +70,8 @@ launched by the spring: the spring's launch wins over the stomp's bounce.
 
 ## Checking contact
 
-- Every update, in steps 2 to 4 above, the player reads both
+- Every update, in steps 2 to 5 above (and in the win step before them,
+  for doors, `door.md`), the player reads both
   `get_overlapping_bodies()` and `get_overlapping_areas()` on its area, as
   one list of everything it touches, and tells them apart by class with
   `is`.
@@ -112,9 +113,8 @@ launched by the spring: the spring's launch wins over the stomp's bounce.
 - `area is Checkpoint`: the player calls the checkpoint's `touch()`
   (`checkpoint.md`). A raised checkpoint ignores it.
 - Touched in any state, in the air, and while invincible.
-- It comes last, after the enemies. Whether a player killed by an enemy
-  in the same update still raises it does not matter: either way it
-  respawns standing on ground (`checkpoint.md`).
+- It comes last, after the enemies. A player killed by an enemy in the
+  same update never gets here: the death ends the update (see The rule).
 
 ## The rule
 
@@ -135,6 +135,14 @@ For the enemies overlapping the player in this update (step 3):
 The player is hurt at most once per update, however many enemies cause it.
 Landing on a walker while touching a crusher stomps the walker *and* hurts
 the player.
+
+**A hurt that kills ends the update.** When the hurt takes the last
+health, the player dies (`player-damage.md`, Death) and its update stops
+right there, like a death on the death line (`player-movement.md`, Each
+update): steps 4 and 5 (springs and checkpoints) do not run, so a dead
+player is never launched and never raises a checkpoint. An injury does
+not end the update: the game is frozen, and the rest of the contact check
+still runs.
 
 Stomping works while the player is invincible too.
 
@@ -191,3 +199,5 @@ Stomping works while the player is invincible too.
 | Invincible player falls onto a walker C | Nothing happens |
 | Player touches a checkpoint that is down | It is raised and becomes the respawn point (`checkpoint.md`) |
 | Player touches a raised checkpoint | Nothing happens |
+| Player with 1 health touches an enemy and a spring in the same update | Dies; not launched, no spring sound |
+| Player with 1 health touches an enemy and a checkpoint that is down in the same update | Dies; the checkpoint stays down |

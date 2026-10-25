@@ -1,8 +1,9 @@
 # Checkpoint
 
-A small flag placed in a level, like a door. Touching it raises its flag,
-and after a death the player starts again from it instead of from the
-start. Read `overview.md`, `level-layout.md`, `flag.md` and `game-flow.md`
+A small flag placed in a level, like a door. Touching it raises its flag
+and makes it the respawn point: after a death the player starts again
+from it instead of from the start. Only the respawn point's flag is
+raised. Read `overview.md`, `level-layout.md`, `flag.md` and `game-flow.md`
 first.
 
 ## Art
@@ -65,26 +66,32 @@ The flag images are 18 × 257: tile row 0 is empty, row 1 holds the cloth
 
 ## Touching it
 
+**The raised checkpoint is the respawn point.** At most one checkpoint is
+raised at a time: the one in `Level.respawn_cell`. All the others are
+down.
+
 The player calls `touch()` (`player-contact.md`, Checkpoints):
 
-- **Down:** it raises itself: plays `"raised"`, its sprite plays
-  `play_bounce()` (`squash.md`), and it sets
-  `Level.respawn_cell = cell` (its own cell). The player respawns standing
-  in that cell, on the ground under it, exactly where the checkpoint
-  stands.
-- **Raised:** nothing happens.
-- Touching one sets the respawn point even if it is left of the current
-  one; with the camera only moving right, that can only happen with two
-  checkpoints on the same screen.
+- **Down:** it becomes the respawn point. It sets
+  `Level.respawn_cell = cell` (its own cell), plays `"raised"`, and its
+  sprite plays `play_bounce()` (`squash.md`). The checkpoint raised
+  before it, if any, goes down: every other checkpoint in
+  `level.checkpoint_layer` that is raised plays `"down"`, with no bounce
+  and no sound. The player respawns standing in that cell, on the ground
+  under it, exactly where the checkpoint stands.
+- **Raised:** nothing happens: it is already the respawn point.
+- The last one touched is always the respawn point, even if it is left of
+  the one before; with the camera only moving right, that can only happen
+  with two checkpoints on the same screen. Touching the earlier one again
+  raises it again and moves the respawn point back to it.
 
 ## After a reload
 
-- In its `setup()`, a checkpoint whose column is at or left of
-  `Level.respawn_cell.x` starts **raised**, playing `"raised"` without a
-  bounce: the player has already passed it. Every other checkpoint starts
-  down.
-- `PLAYER_CELL` is in column 4, left of every checkpoint (they start at
-  column 7), so on a fresh start every checkpoint is down.
+- In its `_ready` (its sprite is built there, `overview.md`, Scenes), the
+  checkpoint whose cell is `Level.respawn_cell` starts **raised**, playing
+  `"raised"` without a bounce. Every other checkpoint starts down.
+- `PLAYER_CELL` is in the start area, where no checkpoint can be, so on a
+  fresh start, and after a win, every checkpoint is down.
 
 ## Acceptance test
 
@@ -95,9 +102,11 @@ The player calls `touch()` (`player-contact.md`, Checkpoints):
 | Any checkpoint | `collision_layer` is `checkpoints`, `collision_mask` is none |
 | Player touches a checkpoint that is down | Raised: cloth animating at 7.5 fps, sprite bounces; `Level.respawn_cell` is its cell |
 | Player touches a raised checkpoint | Nothing changes |
+| Player touches a second checkpoint | It is raised and becomes the respawn point; the first goes down, with no bounce and no sound |
+| Player touches checkpoint A, then B to its right, then A again | A raised and the respawn point; B down |
 | Player dies after touching a checkpoint | The level reloads; the player starts standing in the checkpoint's cell with 2 health; that checkpoint is raised, without a bounce |
 | Player dies without touching one | The player starts on the start floor at (81, 216) |
-| Two checkpoints touched, then a death | The player starts at the one touched last |
+| Two checkpoints touched, then a death | The player starts at the one touched last; after the reload it is raised and the other is down |
 | Player wins after touching a checkpoint | The next level starts at its start floor: `Level.respawn_cell` is `PLAYER_CELL` |
 | Walker, diamond or spring passes a checkpoint | Nothing happens |
 | Checkpoint over a gap, over air or over a block | The build stops with an error |

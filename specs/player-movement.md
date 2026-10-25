@@ -42,10 +42,14 @@ Every update runs these steps in this order:
 8. **Check contact:** blocks, then pickups, then enemies, then springs,
    then checkpoints (`player-contact.md`).
 
-Dying (step 6) and winning (step 7) both pause the game and end the
-update on the spot, so nothing after them runs. So falling past the death
-line beats reaching the flag, and reaching the flag beats any contact: a
-player who wins while touching an enemy wins and is not hurt.
+Dying and winning both pause the game and end the update on the spot, so
+nothing after them runs. That holds for every death: on the death line
+(step 6), or from a hit that takes the last health in the contact check
+(step 8, `player-contact.md`, The rule), which then skips the contact
+steps after it. So falling past the death line beats reaching the flag,
+reaching the flag beats any contact (a player who wins while touching an
+enemy wins and is not hurt), and a player killed by an enemy is never
+launched by a spring or raises a checkpoint in the same update.
 
 ## Walking
 
@@ -158,8 +162,8 @@ no gravity at all.
 
 ## Acceptance test
 
-Write this test before the movement code. It runs headless at 60 updates
-per second, on flat ground with nothing above the character. Passing it is
+Write this test before the movement code. It runs in the test runner
+(`overview.md`, Tests) at 60 updates per second, on flat ground with nothing above the character. Passing it is
 the definition of done for this spec: the numbers come from the user's own
 tuning of the game feel.
 

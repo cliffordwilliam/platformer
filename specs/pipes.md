@@ -61,6 +61,10 @@ joined at the bottom. All random numbers are whole numbers,
 3. **Width:** `w = randi_range(2, 6)` columns, counting both legs. The
    second leg is `w - 1` columns from the first, in that direction.
 
+The roll picks these three; the pipe itself is painted by
+`Level._paint_pipe(column: int, h: int, right: bool, w: int)`, which
+picks nothing, so a test can paint a given pipe.
+
 Then, with `L` the left leg's column and `R` the right leg's column, the
 U is painted as one path with the built-in
 `set_cells_terrain_path(path, 0, 0)`, and Godot picks each tile:
@@ -83,8 +87,10 @@ U is painted as one path with the built-in
   2 × 4 and 4 × 3.
 
 Pipes are at least a screen width apart (the shared cooldown), so two
-pipes never touch on the layer. A pipe may reach past the level's left or
-right edge, or behind high ground; that is fine.
+pipes never touch on the layer. A pipe may reach behind high ground; that
+is fine. It never reaches the start or flag area: big decorations are
+planted at least 5 columns from both, and 5 columns is a pipe's furthest
+reach (`level-layout.md`, Big decorations).
 
 ## Acceptance test
 
@@ -94,7 +100,7 @@ right edge, or behind high ground; that is fine.
 | Level with water, any biome, long flat ground | Some pipes, never two big decorations (pipes, trees or ropes) closer than 26 tiles |
 | Grass level with water, floors on row 7 or less | Big decorations are trees or pipes, each about half the time |
 | Grass level with water, floors on row 8 or more | Big decorations are trees, pipes or ropes, each about a third of the time |
-| Pipe planted in column 10, `h` 3, right, `w` 4 | Legs in columns 10 and 13: vertical bodies on rows 0 and 1; row 2: mirrored elbow in 10, horizontal bodies in 11 and 12, elbow as drawn in 13 |
-| Pipe with `w` 2 | The two elbows side by side, no horizontal body |
+| `_paint_pipe(14, 3, true, 4)` | Legs in columns 14 and 17: vertical bodies on rows 0 and 1; row 2: mirrored elbow in 14, horizontal bodies in 15 and 16, elbow as drawn in 17 |
+| `_paint_pipe()` with `w` 2 | The two elbows side by side, no horizontal body |
 | Any pipe | Top of both legs on row 0; 2 to 6 rows tall, 2 to 6 columns wide |
 | Pipes | Drawn behind the plain decorations, the ground and everything else; never block anything |

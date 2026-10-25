@@ -16,14 +16,26 @@ the player.
   sprite scales around its feet: a landing squash stays on the floor.
 - Only `scale` is changed. The sprite is never rotated (no tilt).
 
-## The squash script
+## The squash helper
 
-One small script, used by the player's, the walkers', the crusher's, the
-diamond's and the spring's sprite nodes (and the walker flattened scene's
-sprite). It
-extends `Node2D`, the shared base of `Sprite2D` and `AnimatedSprite2D`: it
-only uses `scale` and `create_tween()`, so the one script attaches to
-either kind of sprite node.
+One small class, `res://effects/squash.gd`: `class_name Squash extends
+RefCounted`, used for the sprites of the player, the walkers, the crusher,
+the diamond, the spring and the checkpoint (and the walker flattened
+scene's sprite).
+
+- `_init(sprite: Node2D)` keeps the sprite it works on. `Node2D` is the
+  shared base of `Sprite2D` and `AnimatedSprite2D`, and the helper only
+  uses the sprite's `scale` and `create_tween()`, so it works with either.
+- The owner makes one right after it builds its sprite and keeps it,
+  `var squash: Squash` (`squash = Squash.new(sprite)`). Where a spec says
+  a sprite plays `play_bounce()` (or any function below), the call is
+  `squash.play_bounce()`.
+- It is a helper object, not a script attached to the sprite: sprites are
+  built in code (`overview.md`, Scenes), and a sprite kept in a typed
+  variable can't be used as a script given to it later. Tested on 4.7.2:
+  with `var sprite := AnimatedSprite2D.new()` and then
+  `sprite.set_script(...)`, `sprite is Squash` does not even parse, while
+  the helper works.
 
 It keeps one `Tween` at a time. Starting a new effect always kills the
 previous tween first (`cancel_squash()`), so effects never fight over
@@ -31,7 +43,9 @@ previous tween first (`cancel_squash()`), so effects never fight over
 
 Tweens are made with the sprite's own `create_tween()`, so they are bound to
 it: they stop during the injury freeze and when the character is switched
-off, and carry on afterwards.
+off, and carry on afterwards. Tested on 4.7.2: a helper's `play_bounce()`
+starts from (1.3, 0.7), holds still while the game is paused and ends on
+(1, 1).
 
 ### Constants
 
@@ -67,8 +81,8 @@ off, and carry on afterwards.
 
   ```
   var speed := absf(speed_y)
-  scale.y = remap(speed, 0.0, max_fall_speed, 1.0, AIR_SQUASH_MAX_Y)
-  scale.x = remap(speed, 0.0, max_fall_speed, 1.0, AIR_SQUASH_MIN_X)
+  sprite.scale.y = remap(speed, 0.0, max_fall_speed, 1.0, AIR_SQUASH_MAX_Y)
+  sprite.scale.x = remap(speed, 0.0, max_fall_speed, 1.0, AIR_SQUASH_MIN_X)
   ```
 
   So the sprite grows taller and thinner the faster it falls, fully
@@ -93,7 +107,10 @@ off, and carry on afterwards.
 ### Walkers
 
 A walker has no states, so "landing" and "starting to fall" are found by
-comparing `is_on_floor()` with the previous update's value.
+comparing `is_on_floor()` with the previous update's value. That value
+starts as `true`, so a walker that starts on the floor does not bounce on
+its first update, and neither does a diamond when its slide ends. One
+placed in the air simply starts falling, and bounces when it lands.
 
 | When | Call |
 |---|---|

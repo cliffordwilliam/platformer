@@ -30,8 +30,11 @@ is picked at random.
     `level.walker_layer` and the bonk death (`breakable-block.md`).
 - **One scene per kind:** `res://enemies/walker_a.tscn` (script `Walker`),
   `walker_b.tscn` (`ShellWalker`) and `walker_c.tscn` (`SpikedWalker`),
-  each with its own sprite frames, box, origin and enabler `rect`
-  (`assets.md`). The level picks the scene by the spawn's kind.
+  each only a root and its script (`overview.md`, Scenes). The level
+  picks the scene by the spawn's kind. Each walker builds its own sprite
+  frames, box, origin and enabler `rect` in its `_ready`, from its kind's
+  art folder and numbers (`assets.md`); the kind comes from the spawn in
+  `setup()`.
 - The walker's `setup(level, spawn)` gets the `WalkerSpawn` and takes from
   its kind the flattened sprite (`res://art/walker_a/sprite_3.png`,
   `walker_b/` or `walker_c/`) it hands to its flattened and bonked scenes
@@ -149,8 +152,8 @@ walker A, or on a kicked walker B):
    and with the same `flip_h`, showing its kind's own `res://art/walker_*/sprite_3.png` (each
    kind has its own flattened sprite).
 
-The walker flattened scene is a `Node2D` with a `Sprite2D` that uses the
-squash script (`squash.md`). When added, its sprite plays
+The walker flattened scene is a `Node2D` with a `Sprite2D` and a `Squash`
+helper for it (`squash.md`). When added, its sprite plays
 `play_squish(...)`, and when the squish ends (after **0.7 s**) the scene
 hides itself (`visible = false`) and switches itself off. It needs no
 `Timer`: the squish tween's end is the signal. It is never freed. It pauses

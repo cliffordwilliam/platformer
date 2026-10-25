@@ -31,14 +31,14 @@ This file holds the rules every spec shares. Read it first.
 | `player-movement.md` | Walking, jumping, gravity, collisions and player states |
 | `player-animation.md` | Which sprite shows in each state, walk animation speed |
 | `player-damage.md` | Health, injury freeze and invincibility, death |
-| `player-contact.md` | Everything the player touches, in one fixed order: blocks over its head, pickups, enemies (stomp or hurt), springs |
+| `player-contact.md` | Everything the player touches, in one fixed order: blocks over its head, pickups, enemies (stomp or hurt), springs, checkpoints |
 | `camera.md` | Right-only camera, level end, keeping the player on screen |
 | `enemy-walker.md` | Enemies that walk back and forth, turn at walls and fall off ledges: plain, shell and spiked |
 | `enemy-flyer.md` | Enemies that bob up and down in the air |
 | `enemy-leaper.md` | Enemies that leap straight up and fall back, again and again |
 | `enemy-crusher.md` | An enemy that drops on the player and rises back; cannot be stomped |
 | `enemy-bar.md` | A line of sprites spinning around its centre; cannot be stomped |
-| `squash.md` | Squash and stretch on the player, walkers, crusher, diamond and spring |
+| `squash.md` | Squash and stretch on the player, walkers, crusher, diamond, spring and checkpoint |
 | `sound.md` | The title and level music and 14 sound effects (Ninja Adventure pack), when each plays and how loud |
 
 ## Engine
@@ -57,9 +57,10 @@ This file holds the rules every spec shares. Read it first.
   - Errors never stop a run or change its exit code, which is always 0: a
     script that fails to parse just doesn't load, and a failed `assert`
     stops only the function it is in. After every run, read the output for
-    `SCRIPT ERROR` and `ERROR` lines. The one exception is the level's own
-    checks, which quit with code 1 (`level-layout.md`, Checking the
-    layout).
+    `SCRIPT ERROR` and `ERROR` lines. The exceptions are the level's own
+    checks, which quit with code 1 when the level is the scene being
+    played or a snapshot (`level-layout.md`, Checking the layout), and the
+    test runner, which quits with code 1 when a check failed (see Tests).
   - Because an `assert` stops only its own function, a check that must
     stop its caller is not an `assert` inside a helper: the helper appends
     its messages to a list of errors, and the caller looks at the list,
@@ -99,9 +100,10 @@ Godot's own updates, not against copies of the code.
   (enemies, the diamond and springs never switch on with `--headless`,
   see above). Anything after `--` picks only the tests whose name holds
   it: `godot --path . res://tests/run_tests.tscn -- ladder`.
-- At the end the runner calls `get_tree().quit(1)` if any check failed,
-  `quit(0)` if none did, so the exit code tells (unlike errors, see
-  above).
+- **One run shows every failure:** every test runs, whatever happened in
+  the ones before, and a failed check never stops the run. At the end the
+  runner calls `get_tree().quit(1)` if any check failed, `quit(0)` if none
+  did, so the exit code tells (unlike errors, see above).
 - **Each test builds a small level in code:** `res://tests/test_level.gd`
   `extends Level`, and its `layout()` calls a `static var configure:
   Callable` that the test sets first, so each test writes only the fields
@@ -124,12 +126,30 @@ Godot's own updates, not against copies of the code.
   sets `Level.respawn_cell` back to `Level.PLAYER_CELL` first: it is a
   `static var` and would carry a checkpoint over from the previous test
   (`checkpoint.md`).
+- **A layout error never ends the run:** under the runner, a level with
+  errors neither prints them nor quits (`level-layout.md`, Checking the
+  layout); it only stops building and keeps its `errors` list. Tests add
+  their level through one runner function, `add_level(expect_errors :=
+  false)`. A test that expects errors passes `true` and checks the
+  messages in the level's `errors`. For every other test, the function
+  checks that `errors` is empty, and if not, fails that test with each
+  message as its own failed check. Either way the runner goes on to the
+  next test.
+- **Between tests**, the runner sets `get_tree().paused = false` (a test
+  may end paused: after a win, a death or in an injury freeze), frees the
+  test level with `queue_free()` and waits one update, so the next test
+  starts unpaused, with nothing left over from the last one. Freeing the
+  level also drops whatever was still waiting in it: tested on 4.7.2, a
+  freed node's pending `await get_tree().create_timer(...).timeout` never
+  resumes and prints no error, so an injury freeze cut short can never
+  unpause the next test.
 - **Two traps (tested on 4.7.2):**
   - The runner keeps going while the game is paused
     (`PROCESS_MODE_ALWAYS`), and a level added under it would inherit
-    that and ignore the pause. Each test level is set to
-    `PROCESS_MODE_PAUSABLE` before it is added, so it pauses like a level
-    that is the scene root.
+    that and ignore the pause. So the level sets its own `process_mode`
+    to `PROCESS_MODE_PAUSABLE` first thing in its `_ready`
+    (`level-layout.md`, Building, step 1): under the runner, like under
+    the snapshot, it then pauses like a level that is the scene root.
   - A `static var` still holding a lambda when the game quits crashes
     Godot on the way out ("double free or corruption", exit code 134).
     The runner sets `configure` back to an empty `Callable()` before it
@@ -217,8 +237,9 @@ Godot's own updates, not against copies of the code.
   (`level-layout.md`).
 - There is no pause button or pause screen. The game only pauses itself:
   for the injury freeze and death (`player-damage.md`), on winning
-  (`flag.md`), and while the iris opens at a level's start
-  (`game-flow.md`).
+  (`flag.md`, `door.md`), while the iris opens at a level's start
+  (`game-flow.md`), and in a snapshot, so everything stays where it was
+  placed (`level-layout.md`, Snapshot).
 - **Physics layers** (named in Project Settings > Layer Names > 2D Physics):
 
   | Layer | Name | On it |
@@ -267,3 +288,71 @@ Godot's own updates, not against copies of the code.
 - Sound is in `sound.md`: only the music and effects it lists, played
   where it says.
 - Do not add mechanics a spec does not describe.
+
+## Scenes
+
+The build has no editor (`level-tiles.md`), so no scene is put together
+by hand in one.
+
+- **Every scene is a root and a script.** Each `.tscn` holds only its
+  root node, of the type in the table below, with its script, and nothing
+  else, like the levels (`level-layout.md`, The level script). Written as
+  text (tested on 4.7.2):
+
+  ```
+  [gd_scene load_steps=2 format=3]
+
+  [ext_resource type="Script" path="res://items/coin.gd" id="1"]
+
+  [node name="Coin" type="Area2D"]
+  script = ExtResource("1")
+  ```
+
+- **The script builds every child in code**, in its `_ready`: sprites and
+  their `SpriteFrames`, collision shapes, `VisibleOnScreenEnabler2D`s,
+  `Timer`s, the diamond's pickup area. The title screen, the iris and the
+  bar already work this way. Anything a child needs from outside comes
+  through `setup()`, which runs before `_ready` (`level-layout.md`,
+  Building a thing).
+- **Built-in nodes with no script of their own** need no scene: the
+  level's layer `Node2D`s, every `TileMapLayer`, the `Background`, the
+  `HUD` and the `Music` player are made with `.new()`.
+- Each scene's script sits next to it, with the same name
+  (`res://items/coin.gd` for `res://items/coin.tscn`), except the walkers,
+  whose three scenes use three scripts named after their classes.
+
+| Scene | Root | Script's `class_name` |
+|---|---|---|
+| `res://player/player.tscn` | `CharacterBody2D` | `Player` |
+| `res://player/player_death.tscn` | `Node2D` | `PlayerDeath` |
+| `res://enemies/walker_a.tscn` | `CharacterBody2D` | `Walker` (`res://enemies/walker.gd`) |
+| `res://enemies/walker_b.tscn` | `CharacterBody2D` | `ShellWalker` (`res://enemies/shell_walker.gd`) |
+| `res://enemies/walker_c.tscn` | `CharacterBody2D` | `SpikedWalker` (`res://enemies/spiked_walker.gd`) |
+| `res://enemies/walker_flattened.tscn` | `Node2D` | `WalkerFlattened` |
+| `res://enemies/walker_bonked.tscn` | `Node2D` | `WalkerBonked` |
+| `res://enemies/flyer.tscn` | `Area2D` | `Flyer` |
+| `res://enemies/leaper.tscn` | `Area2D` | `Leaper` |
+| `res://enemies/enemy_death.tscn` | `Node2D` | `EnemyDeath`: the flyer's and the leaper's death scene, given its sprite in `setup()` |
+| `res://enemies/crusher.tscn` | `CharacterBody2D` | `Crusher` |
+| `res://enemies/bar.tscn` | `Area2D` | `Bar` |
+| `res://blocks/breakable_block.tscn` | `StaticBody2D` | `BreakableBlock` |
+| `res://blocks/gift_block.tscn` | `StaticBody2D` | `GiftBlock` |
+| `res://blocks/block_chunk.tscn` | `Node2D` | `BlockChunk` |
+| `res://items/coin.tscn` | `Area2D` | `Coin` |
+| `res://items/popped_coin.tscn` | `Node2D` | `PoppedCoin` |
+| `res://items/diamond.tscn` | `CharacterBody2D` | `Diamond` |
+| `res://items/spring.tscn` | `CharacterBody2D` | `Spring` |
+| `res://items/door.tscn` | `Area2D` | `Door` |
+| `res://items/checkpoint.tscn` | `Area2D` | `Checkpoint` |
+| `res://items/flag.tscn` | `Node2D` | `Flag` |
+| `res://levels/camera.tscn` | `Camera2D` | `Camera` |
+| `res://levels/iris.tscn` | `CanvasLayer` | `Iris` |
+| `res://levels/sounds.tscn` | `Node` | `Sounds` |
+
+Scripts with no scene: `res://screen.gd` (`Screen`), `res://grid.gd`
+(`Grid`), `res://tiles/tiles.gd` (`Tiles`), `res://levels/level.gd`
+(`Level`), `res://levels/spawns/<kind>_spawn.gd` (the spawn classes),
+`res://enemies/walking_body.gd` (`WalkingBody`), `res://blocks/block.gd`
+(`Block`) and `res://effects/squash.gd` (`Squash`, `squash.md`). The
+title, the test runner and the snapshot keep the paths their specs give
+(`game-flow.md`, Tests above, `level-layout.md`, Snapshot).

@@ -198,18 +198,27 @@ fields (`floors`, `has_water`, the lists), never built nodes or physics.
   just the first. Each message names the field and the bad value (a floor
   by its index, see Floors).
 - **One function does all the checks**, `_check_layout() -> void`, which
-  only appends to `errors`. `_ready` then looks at `errors` itself:
-  if any, it prints each with the built-in `push_error()`, calls
-  `get_tree().quit(1)` and returns, so nothing is built. No `assert`: an
-  `assert` inside a helper stops only the helper (`overview.md`, Running
-  from the command line), and asserts are left out of release exports.
+  only appends to `errors`. `_ready` then looks at `errors` itself, once
+  every check has run: if any, it reports them all together (below) and
+  returns, so nothing is built. No `assert`: an `assert` inside a helper
+  stops only the helper (`overview.md`, Running from the command line),
+  and asserts are left out of release exports.
+- **How the errors are reported depends on who runs the level:**
+  - **The scene being played** (`is_main`, `game-flow.md`) **or a
+    snapshot** (`Level.show_guides`, see Snapshot): it prints each message
+    with the built-in `push_error()`, then calls `get_tree().quit(1)`.
+  - **Under the test runner** (neither): it prints nothing and does not
+    quit. The level just stops, holding its `errors`, and the test reads
+    them (`overview.md`, Tests), so a bad test level never ends the test
+    run.
 - `quit()` lets the current frame finish first (tested on Godot 4.7.2: one
   more `_process` ran), which is harmless here, since nothing is built
   yet. The run exits with **code 1**, and each message shows in the output
   as an `ERROR:` line, followed by the line of the script that pushed it.
   Without this, a run always exits with code 0 (`overview.md`).
 - The jump check (see Jump check) appends to the same `errors` at the end
-  of building, and is handled the same way.
+  of building, and is handled the same way, except in a snapshot, where it
+  never quits (see Jump check).
 
 The checks:
 
@@ -241,6 +250,7 @@ The checks:
   them: they always sit on row 14, behind the water (`enemy-leaper.md`).
 - **`platforms`:** every width is 1 or more, like the floors.
 - **`ladders`:** every height is 1 or more.
+- **`bars`:** every `units` is 0 or more (`enemy-bar.md`).
 - **`checkpoints`:** the cell under each checkpoint is ground (a cell of a
   floor that is not a gap, from its surface row down to row 14) or a cell
   of a platform, so the player always respawns standing on something
@@ -342,8 +352,9 @@ The flag is the one exception: it is placed automatically (`flag.md`).
 
 For every item in a list, the level root:
 
-1. instantiates the kind's scene (`load(path).instantiate()`: `load()`
-   when building, never `preload`, which would be a cycle, `overview.md`)
+1. instantiates the kind's scene (its path is in `overview.md`, Scenes;
+   `load(path).instantiate()`: `load()` when building, never `preload`,
+   which would be a cycle, `overview.md`)
 2. sets its `position` with `cell_to_position`
 3. calls its `setup(...)` with everything it needs (below)
 4. adds it to the kind's layer node with `add_child()`
@@ -364,7 +375,8 @@ already there.
   `assert(level != null, "setup() not called")`, so a scene added without
   `setup()` stops at once with that message.
 - **The level keeps a typed reference** to each layer node it creates
-  (`walker_layer: Node2D`, `block_item_layer: Node2D` and so on), to the
+  (`walker_layer: Node2D`, `block_item_layer: Node2D`,
+  `checkpoint_layer: Node2D` and so on), to the
   player (`player: Player`) and to the camera (`camera: Camera`),
   so things find each other through `level`, never through groups.
 - **A thing's `_ready` only touches the thing itself** and its own
@@ -381,9 +393,16 @@ already there.
 `Level._ready()` does all of this in one go, so no update runs before the
 whole level exists.
 
-1. Calls `layout()`, adds the start and end floors (see Floors), then
-   checks the layout (see Checking the layout). With any errors it stops
-   there: nothing is built.
+1. Sets its own `process_mode` to `PROCESS_MODE_PAUSABLE`, first, so it
+   pauses with the game even under a parent that always runs: the test
+   runner and the snapshot are both `PROCESS_MODE_ALWAYS`, and a level
+   left at the default would inherit that and ignore every pause. Tested
+   on 4.7.2: under an always-running parent, a level that does this
+   stops while the game is paused, children included, and carries on
+   after. As the scene being played it makes no difference. Then it calls
+   `layout()`, adds the start and end floors (see Floors), and checks the
+   layout (see Checking the layout). With any errors it stops there:
+   nothing is built.
 2. Creates its children **in this order**. Godot draws later children on
    top, like layers in a drawing program, so no `z_index` is needed:
    1. `Background` (`Parallax2D`, see `background.md`), drawn behind
@@ -419,6 +438,10 @@ whole level exists.
    20. `Iris` (`CanvasLayer`, see `game-flow.md`), only when the level is
        the scene being played (`is_main`, `game-flow.md`): drawn in front
        of the HUD
+
+   Two more children draw nothing, so their place among the others does
+   not matter: `Sounds` (every run) and `Music` (only while `is_main`),
+   both in `sound.md`.
 3. Fills the tile layers:
    1. every solid cell of `Ground`, with the built-in
       `set_cells_terrain_connect(cells, 0, 0)` (terrain set 0, the
@@ -681,7 +704,10 @@ godot --path . --write-movie snapshots/level_1_page.png res://tools/snapshot.tsc
   `game-flow.md`), so it has no iris and does not pause itself.
 - Then it pauses the game (`get_tree().paused = true`), so everything stays
   exactly where it was placed. The snapshot's own root has
-  `process_mode = PROCESS_MODE_ALWAYS`, so it keeps running.
+  `process_mode = PROCESS_MODE_ALWAYS`, so it keeps running. The level
+  still pauses: it sets itself to `PROCESS_MODE_PAUSABLE` at the start of
+  its build (see Building, step 1), so it does not inherit the snapshot's
+  `ALWAYS`.
 - **Pages step by whole tiles:** page `p` puts the camera's left edge at
   column `25 * p` (x = 450 × p). A screen is 25.5 columns wide, so each
   page overlaps the next by half a column. The camera's right edge is still
@@ -824,7 +850,7 @@ on, there is a way onward to the right.
   the layout errors (see Checking the layout). The level is already built
   here, so one more frame runs before the quit, which is harmless.
 - **In a snapshot** (`Level.show_guides` on) the check does not stop the
-  build: the messages are still printed, and it draws a red marker at the right edge of each failing thing
+  build or quit: the messages are still printed, and it draws a red marker at the right edge of each failing thing
   instead (see Snapshot), so the failures can be seen in place.
 - Ladders (`ladder.md`) are not part of the check, and a ladder's top is
   not a standable thing here: every level must be crossable by jumping
@@ -910,20 +936,22 @@ may go anywhere.
 | Snapshot | No plain decorations, waterfalls, trees, pipes, ropes, ground pieces or plants under mushroom caps; ground, water, spikes, platforms, ladders and placed things as usual |
 | Two snapshots of different pages of the same level | Every platform, door and gift block looks the same in both, and so do the ground's fills |
 | Snapshot | No iris, not paused by the level |
+| Snapshot of a level with walkers, flyers, leapers and a spring placed in the air | Every page shows each of them exactly where it was placed: nothing moves while the pages are written |
+| A level under a parent that always runs (the test runner or the snapshot), game paused | The level and everything in it stop, and carry on when the game is unpaused |
 | Many builds of a long level | No tree, pipe or rope is planted left of column 12 or right of the 6th column left of the flag, and none reaches into the start or flag area |
 | Snapshot with no `snapshots/` folder | Nothing written; create the folder first |
 | Normal run | No grid, no guides |
-| Snapshot page 1 | Camera's left edge at x = 450 |
+| Snapshot page 1 of a level 51 columns wide or more | Camera's left edge at x = 450 (in a shorter level, page 1 is its last page, clamped to `level_end_x`) |
 | Snapshot's last page | Camera's right edge at `level_end_x` |
 | Snapshot of a level 255 columns wide | One run writes `level_1_page00000000.png` to `level_1_page00000010.png`, 11 pages, each showing its own page; nothing more |
 | Snapshot of a level 26 columns wide | Pages 0 and 1 |
 | Snapshot, any floor | A yellow line on its left edge and its label, e.g. `[3] col 14`, `start` or `end`, in the cell above its surface |
 | Snapshot, a gap | Its label on row 12 |
 | Normal run | No floor labels |
-| Coin at cell (4, 6) | `position` (72, 108) |
-| Walker at cell (5, 10) | `position` (99, 198): feet on top of row 11 |
-| Flyer at cell (5, 4) | `position` (99, 81) |
-| A spawn given a wrong type, e.g. `FlyerSpawn.new(Vector2i(5, 4), "far")` | GDScript error; the level does not run |
+| Coin at cell (8, 6) | `position` (144, 108) |
+| Walker at cell (8, 10) | `position` (153, 198): feet on top of row 11 |
+| Flyer at cell (8, 4) | `position` (153, 81) |
+| A spawn given a wrong type, e.g. `FlyerSpawn.new(Vector2i(8, 4), "far")` | GDScript error; the level does not run |
 | Level root and every placed thing | No `@tool`, no `@export` |
 | Two items in the same cell, in one list or across lists (for example a coin and a walker) | The build stops with an error naming both, e.g. "walker at (14, 6) overlaps coin at (14, 6)" |
 | A block inside the ground | The build stops with an error |
@@ -932,6 +960,7 @@ may go anywhere.
 | A bar, flyer or leaper on ground, a block, a coin or another thing | Allowed |
 | Two bars on one cell, two flyers on one cell, or two leapers in one column | The build stops with an error naming the list and the cell or column |
 | A floor with width 0 | The build stops with an error |
+| A bar with `units` -1 | The build stops with an error |
 | Any level | Its first floor is `Vector2i(7, 12)` and its last `Vector2i(10, 12)`, both added by the level root; the level script has no `player_cell` |
 | Any level, no checkpoint touched | The player starts in cell (4, 11), standing on the start floor: `position` (81, 216) |
 | Written floors 8 columns wide (level 25 columns, under one screen) | The build stops with an error |
@@ -943,7 +972,8 @@ may go anywhere.
 | A walker B in column 7 (its box reaches column 6) | The build stops with an error: it is in the start area |
 | A door on the column left of the flag | Allowed (the door and its top take one column) |
 | A level with a coin in the start area, a floor 0 wide and two coins on one cell | One run prints all three errors, as `ERROR:` lines, and nothing is built |
-| Any error | The run exits with code 1; a level with no errors runs as usual |
+| Any error, in the level being played or a snapshot | The run exits with code 1; a level with no errors runs as usual |
+| Any error, in a level under the test runner | Nothing printed and no quit: nothing is built, the messages are in the level's `errors`, and the next test runs |
 | An error message about a written floor | Names it by its index and its columns and row, e.g. `floors[3] (columns 14 to 16, row 9)` |
 | A walker inside the ground | The error names the floor, e.g. "walker at (14, 10) overlaps floors[3] (columns 14 to 16, row 9)" |
 | Written floors ending with a floor on row 12, then a 6-column gap | The jump check fails onto the end floor (same row, 6-tile gap): the build stops |
@@ -964,7 +994,7 @@ may go anywhere.
 | A platform on ground, a block or another platform | The build stops with an error naming both |
 | Any platform | Drawn as one of its biome's looks (`one-way-platform.md`) |
 | Any leaper with `has_water` off | The build stops with an error |
-| A leaper in column 5 | `position` (99, 261): the middle of row 14, behind the water |
+| A leaper in column 8 | `position` (153, 261): the middle of row 14, behind the water |
 | A flyer with `bob_distance` 0 | Allowed: it hovers in place |
 | A flyer at row 1 (y 27) with `bob_distance` 220 (down to y 247) | Allowed: sprite fully on screen at both ends |
 | A flyer at row 1 with `bob_distance` 221, or `bob_distance` -18 | The build stops with an error |
@@ -974,7 +1004,7 @@ may go anywhere.
 | A scene added without `setup()` | Stops at its `_ready` with "setup() not called" |
 | A coin pops out of a gift block | The coin is in `BlockItems`, drawn behind the block |
 | An enemy is stomped | Its death scene is in `Effects`, drawn in front of the water |
-| `biome` changed to `GRASS` | `Ground`, every `Piece<n>` and `RopeCeilings` use the grass `TileSet`; `Decorations`, every `Piece<n>Decorations` and `RopeCeilingDecorations` use the grass decorations `TileSet`; the background is `res://art/backgrounds/sprite_3.png` |
+| `biome` changed to `GRASS` | `Ground`, every `Piece<n>` and `RopeCeilings` use the grass `TileSet`; `Decorations`, every `Piece<n>Decorations`, `RopeCeilingDecorations` and `MushroomDecorations` use the grass decorations `TileSet`; the background is `res://art/backgrounds/sprite_3.png` |
 | Same row, 5-tile gap | Jump check passes |
 | Same row, 6-tile gap | The build stops with an error naming the floor; in a snapshot, a red marker instead |
 | Two failing jumps in one level | Both in the errors, printed in one run |

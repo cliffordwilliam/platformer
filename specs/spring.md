@@ -98,7 +98,7 @@ coins up high.
 
 | Case | Expected |
 |---|---|
-| Spring at cell (5, 10) | `position` (99, 198): standing on the top of row 11 |
+| Spring at cell (8, 10) | `position` (153, 198): standing on the top of row 11 |
 | Player walks or falls into a spring | `velocity.y == -445.5`, state Spring; both sprites play the bounce |
 | Player in Spring, jump held or not | Light gravity every update; rises about 176.6 px over 49 updates, then Fall |
 | Player still overlapping the spring while in Spring | Not launched again |

@@ -67,7 +67,9 @@ stomped (`stomp()`):
 1. The flyer switches itself off and hides
    (`process_mode = PROCESS_MODE_DISABLED`, `visible = false`).
 2. It adds a **flyer death** scene to the level (`level.add_effect()`), at
-   the same position.
+   the same position: `res://enemies/enemy_death.tscn` (`overview.md`,
+   Scenes), the one death scene the flyer and the leaper share, given the
+   flyer's sprite in its `setup()`.
 
 The flyer death scene is a `Node2D` with a `Sprite2D`:
 

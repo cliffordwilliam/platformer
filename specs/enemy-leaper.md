@@ -84,8 +84,9 @@ The leap height and timing come from the numbers above: it rises about
 
 Leapers are stompable (see `player-contact.md`). When
 stomped, a leaper dies exactly like a flyer (see Stomped in
-`enemy-flyer.md`): it switches itself off and hides, and adds the same kind
-of death scene to the level (`level.add_effect()`). It always shows
+`enemy-flyer.md`): it switches itself off and hides, and adds the same
+death scene, `res://enemies/enemy_death.tscn`, to the level
+(`level.add_effect()`), given the leaper's sprite in its `setup()`. It always shows
 `res://art/leaper/sprite_1.png`, upside down (`flip_v = true`), with no
 animation, falling with gravity 965.04 capped at 202.5 through
 everything and off the screen.

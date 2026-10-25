@@ -94,6 +94,12 @@ randomness is not seeded: looks differ on every build. Every random number
 below is also a whole number from `randi_range(min, max)`, each value
 equally likely.
 
+**Picking and drawing are kept apart**, so a test can draw a given look:
+the looks are `enum PlatformLook { WOODEN, CLOUD, STONE, MUSHROOM }` on
+`Level`, and once the look is picked, the platform is drawn by
+`Level._paint_platform(spawn: PlatformSpawn, look: PlatformLook)`, which
+picks nothing but the per-cell variants below.
+
 ## Drawing
 
 One `TileMapLayer`, `Platforms`, right before `MushroomDecorations`,
@@ -203,10 +209,14 @@ Hanging plants):
   below and lands on top of it. Rising into one from below is never a
   ceiling (`is_on_ceiling()` stays false), so there is no bonk. A platform
   is not a `Block`: `block_at` never returns one.
-- Walkers, the crusher and the diamond collide with `level`, so they land
-  on platforms too, and walk off their ends.
+- Walkers, the crusher, the diamond and springs collide with `level`, so
+  they land on platforms too, and walkers and the diamond walk off their
+  ends.
 
 ## Acceptance test
+
+The rows about one look (wooden, cloud, stone, mushroom) draw it with
+`_paint_platform()` and that look (see Picking the look).
 
 | Case | Expected |
 |---|---|
@@ -224,9 +234,9 @@ Hanging plants):
 | Two clouds end to end on one row, widths 2 and 3 | Drawn as one cloud 5 wide: end, three bodies, mirrored end |
 | A cloud end to end with a stone | Each keeps its own ends |
 | Player stands on a mirrored cloud or stone end | Stands on it like any other platform tile |
-| Mushroom `PlatformSpawn.new(Vector2i(4, 8), 3)` over ground on row 12 | Cap on row 8, columns 4 to 6: end, centre, mirrored end; stalk bodies on rows 9 and 10 in column 5, base on row 11 |
-| Mushroom width 4 at column 4 | Centre in column 5 (rounded down) |
-| Mushroom width 5 at column 4 | Centre in column 6 |
+| Mushroom `PlatformSpawn.new(Vector2i(8, 8), 3)` over ground on row 12 | Cap on row 8, columns 8 to 10: end, centre, mirrored end; stalk bodies on rows 9 and 10 in column 9, base on row 11 |
+| Mushroom width 4 at column 8 | Centre in column 9 (rounded down) |
+| Mushroom width 5 at column 8 | Centre in column 10 |
 | Any cap end | Variant 1 or 2; right ends mirrored |
 | Any stalk body | Variant 1 or 2, picked per cell |
 | Mushroom cap directly above the ground (row 11, ground row 12) | No stalk cells |

@@ -76,6 +76,9 @@ At the moment of the hit that kills the player:
    (`level.add_effect()`; a child of a switched-off, hidden node would be switched off and
    hidden too): same global position, same `flip_h`. Its `process_mode` is `PROCESS_MODE_ALWAYS`, so
    it runs while the game is paused.
+4. The player's update ends here, whatever caused the death (the death
+   line or a hit): nothing after it in this update runs
+   (`player-movement.md`, Each update).
 
 The player death scene is a `Node2D` with a `Sprite2D` showing
 `res://art/player/sprite_1.png`. When it is added:

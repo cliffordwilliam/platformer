@@ -57,9 +57,17 @@ The crusher is always in one of four states:
 
 ## Switching on and off
 
-- Like other enemies, it has a `VisibleOnScreenEnabler2D`. Its `rect`
-  covers the crusher's whole path, from the start point down to the bottom
-  of the screen, so it is never switched off partway through a fall or rise.
+- Like other enemies, it has a `VisibleOnScreenEnabler2D`. Its `rect` is
+  as wide as the sprite (20 px, centred on the origin) and reaches from
+  the sprite's top down to the bottom of the screen, as seen from the
+  start point: `Rect2(-10, -19, 20, Screen.height - start_y + 19)`, set
+  once (`assets.md`: origin (10, 19) in a 20 × 20 image).
+- The enabler is a child, so its rect moves with the crusher, but it
+  always reaches the bottom of the screen or past it. So, as for the other
+  enemies, only x decides: the crusher is never switched off partway
+  through a fall or rise, and one placed above the screen still switches
+  on as its column comes on screen. One that falls into a gap is switched
+  off once its sprite is wholly below the screen.
 
 ## Not stompable
 
