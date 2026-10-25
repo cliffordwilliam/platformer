@@ -1881,3 +1881,174 @@ func test_rope_and_tree() -> void:
 	check(level.tree_canopy_front_layer.get_used_cells().size() >= 4, "two supporting canopies")
 
 #endregion
+
+
+#region Squash and stretch (squash.md)
+
+func test_squash_player_jump() -> void:
+	make(flat())
+	await settle()
+	press("jump")
+	await updated
+	release("jump")
+	var squash := level.player.squash
+	check(squash._tween != null and squash._tween.is_valid(), "a bounce plays on the jump")
+	await updated
+	var after_one := level.player.sprite.scale
+	check(after_one.x > 1.2 and after_one.y < 0.8, "starts near (1.3, 0.7) (%s)" % after_one)
+	var body_box := level.player.box().size
+	await wait_until(func() -> bool: return level.player.is_on_floor() and level.player.state == Player.State.IDLE, 120)
+	level.player.squash.play_bounce()
+	await wait(61)
+	check(level.player.sprite.scale.is_equal_approx(Vector2.ONE), "back to (1, 1) after 1 s")
+	check_equal(level.player.box().size, body_box, "the box never changes")
+
+
+func test_squash_air() -> void:
+	make(flat())
+	var squash := level.player.squash
+	squash.update_air_squash(270, 270)
+	check(level.player.sprite.scale.is_equal_approx(Vector2(0.9, 1.2)), "270 px/s: (0.9, 1.2)")
+	squash.update_air_squash(135, 270)
+	check(level.player.sprite.scale.is_equal_approx(Vector2(0.95, 1.1)), "135 px/s: (0.95, 1.1)")
+
+
+func test_squash_restart() -> void:
+	make(flat())
+	await settle()
+	var squash := level.player.squash
+	squash.play_bounce()
+	await wait(20)
+	var first := squash._tween
+	squash.play_bounce()
+	check(not first.is_valid(), "the first stops")
+	await updated
+	check(level.player.sprite.scale.x > 1.25, "the second starts from (1.3, 0.7)")
+
+
+func test_squash_walker_stomped() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.PLAIN)]))
+	await wait(2)
+	walker().stomp()
+	var flattened: WalkerFlattened = level.effects.get_child(0)
+	await wait(6)
+	check(flattened.sprite.scale.is_equal_approx(Vector2(1.5, 0.2)), "(1.5, 0.2) after 0.1 s")
+	await wait(36)
+	check(flattened.sprite.scale.distance_to(Vector2(1.2, 0.5)) < 0.01, "(1.2, 0.5) after 0.7 s")
+	await wait(1)
+	check(not flattened.visible, "then hidden")
+
+
+func test_squash_shell_and_checkpoint() -> void:
+	make(flat(func(l: Level) -> void:
+		l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.SHELL)]
+		l.checkpoints = [Vector2i(20, 11)]))
+	await wait(2)
+	walker().stomp()
+	await updated
+	check(walker().sprite.scale.x > 1.2, "walker B stomped: its sprite bounces")
+	var checkpoint: Checkpoint = level.checkpoint_layer.get_child(0)
+	checkpoint.touch()
+	await updated
+	check(checkpoint.sprite.scale.x > 1.2 and checkpoint.sprite.offset == -Checkpoint.ORIGIN, "checkpoint bounces around its feet")
+
+
+func test_squash_never_on_flyer_leaper_bar() -> void:
+	make(func(l: Level) -> void:
+		l.floors = [Vector2i(30, 12)]
+		l.has_water = true
+		l.flyers = [FlyerSpawn.new(Vector2i(14, 4), 40.0)]
+		l.leapers = [16]
+		l.bars = [BarSpawn.new(Vector2i(18, 5), 1, 0.0, true)])
+	var always_one := true
+	for i in 90:
+		await updated
+		for node: Node2D in [level.flyer_layer.get_child(0).sprite, level.leaper_layer.get_child(0).sprite,
+				level.bar_layer.get_child(0).sprites[0]]:
+			if node.scale != Vector2.ONE:
+				always_one = false
+	check(always_one, "flyer, leaper and bar sprites stay at (1, 1)")
+
+#endregion
+
+
+#region Sound (sound.md)
+
+func playing(effect: Sounds.Effect) -> bool:
+	return level.sounds.is_playing(effect)
+
+
+func test_sound_players() -> void:
+	make(flat())
+	var players := level.sounds.get_children()
+	check_equal(players.size(), 13, "one player per effect")
+	var right := true
+	for effect: Sounds.Effect in Sounds.VOLUME_DB:
+		var player: AudioStreamPlayer = level.sounds._players[effect]
+		if not is_equal_approx(player.volume_db, Sounds.VOLUME_DB[effect]) or player.max_polyphony != 1 \
+				or player.process_mode != Node.PROCESS_MODE_ALWAYS:
+			right = false
+	check(right, "each at its volume, polyphony 1, always running")
+	check(level.music == null, "no music in tests")
+	check(level.sounds.process_mode == Node.PROCESS_MODE_ALWAYS, "Sounds runs while paused")
+
+
+func test_sound_jump_and_stomp() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.PLAIN),
+			WalkerSpawn.new(Vector2i(15, 11), WalkerSpawn.Kind.PLAIN)]))
+	await settle()
+	press("jump")
+	await updated
+	release("jump")
+	check(playing(Sounds.Effect.JUMP), "jump sound")
+	await wait(60)
+	level.sounds._players[Sounds.Effect.JUMP].stop()
+	walker(0).speed = 0.0
+	walker(1).speed = 0.0
+	walker(1).position.x = walker(0).position.x + 9
+	drop_player(walker(0).position + Vector2(4, -30))
+	await wait_until(func() -> bool: return not walker(0).visible, 60)
+	check(playing(Sounds.Effect.STOMP) and not playing(Sounds.Effect.JUMP), "stomp sound, no jump sound")
+
+
+func test_sound_kick_and_stomp() -> void:
+	make(flat(func(l: Level) -> void: l.walkers = [WalkerSpawn.new(Vector2i(14, 11), WalkerSpawn.Kind.SHELL),
+			WalkerSpawn.new(Vector2i(16, 11), WalkerSpawn.Kind.PLAIN)]))
+	await wait(2)
+	var shell := walker(0) as ShellWalker
+	shell.state = ShellWalker.State.STILL
+	shell.speed = 0.0
+	walker(1).speed = 0.0
+	walker(1).set_physics_process(false)
+	walker(1).position = shell.position + Vector2(14, -8)
+	drop_player(shell.position + Vector2(10, -40))
+	await wait_until(func() -> bool: return shell.state == ShellWalker.State.KICKED, 60)
+	check(playing(Sounds.Effect.KICK) and playing(Sounds.Effect.STOMP), "a kick and a stomp: both sounds")
+
+
+func test_sound_blocks_and_pickups() -> void:
+	make(flat(func(l: Level) -> void:
+		l.blocks = [BreakableBlockSpawn.new(Vector2i(10, 8)), GiftBlockSpawn.new(Vector2i(14, 8), GiftBlockSpawn.Contents.COIN)]
+		l.checkpoints = [Vector2i(20, 11)]))
+	await settle()
+	block(0).bonk()
+	check(playing(Sounds.Effect.BREAK), "break sound")
+	block(1).bonk()
+	check(playing(Sounds.Effect.BUMP) and playing(Sounds.Effect.COIN), "bump and coin sounds")
+	level.sounds._players[Sounds.Effect.BUMP].stop()
+	block(1).bonk()
+	check(playing(Sounds.Effect.BUMP), "bump sound when used too")
+	level.checkpoint_layer.get_child(0).touch()
+	check(playing(Sounds.Effect.CHECKPOINT), "checkpoint sound")
+
+
+func test_sound_hurt_and_death() -> void:
+	make(flat())
+	await settle()
+	level.player.hurt()
+	check(playing(Sounds.Effect.HURT), "hurt sound during the freeze")
+	await wait(60)
+	level.player.hurt()
+	check(playing(Sounds.Effect.DEATH), "death sound")
+
+#endregion
