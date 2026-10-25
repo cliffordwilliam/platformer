@@ -207,7 +207,7 @@ Hanging plants):
 | Player falls onto a platform, any look | Lands and stands on it |
 | Walker on a platform | Walks along it and falls off the end |
 | Player walks into a stalk | Passes through it |
-| Width 0 | The build stops with an `assert` |
-| A platform cell in column -1 or past the last column | The build stops with an `assert` |
-| A platform cell on ground, a block, a coin, a walker, the player, a crusher or another platform | The build stops with an `assert` naming both |
+| Width 0 | The build stops with an error |
+| A platform cell in the start or flag area, or outside the level | The build stops with an error |
+| A platform cell on ground, a block, a coin, a walker, a crusher or another platform | The build stops with an error naming both |
 | Two platforms with empty columns between them | Allowed |

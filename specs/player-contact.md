@@ -1,16 +1,22 @@
 # Player contact
 
 What happens when the player touches something: a block over its head, a
-pickup (coin or diamond), an enemy or a spring. The player checks all of it itself,
+pickup (coin or diamond), an enemy, a spring or a checkpoint. The player checks all of it itself,
 in one place, in a fixed order, right after it moves. Nothing reacts to the
 player on its own: no `body_entered` signals anywhere. Read `overview.md`,
 `player-movement.md` and `player-damage.md` first.
 
-Stompable enemies are the walkers (`enemy-walker.md`), the flyers
-(`enemy-flyer.md`) and the leapers (`enemy-leaper.md`). The player checks
-this by class, in this one place:
-`enemy is Walker or enemy is Flyer or enemy is Leaper`. The crusher (`enemy-crusher.md`) and the bar
-(`enemy-bar.md`) cannot be stomped.
+Stompable enemies are the walkers (`enemy-walker.md`) except walker C,
+the flyers (`enemy-flyer.md`) and the leapers (`enemy-leaper.md`). The
+player checks this by class, in this one place:
+`(enemy is Walker and enemy is not SpikedWalker) or enemy is Flyer or enemy is Leaper`.
+Walker C (`SpikedWalker`, its top is a spike), the crusher
+(`enemy-crusher.md`) and the bar (`enemy-bar.md`) cannot be stomped.
+
+**Harmless:** a walker B that has become a shell, still or kicked
+(`enemy-walker.md`, Walker B: the shell), never hurts the player:
+`enemy is ShellWalker and enemy.state != ShellWalker.State.WALK`. It can
+still be stomped.
 
 ## Constants
 
@@ -31,6 +37,7 @@ order:
    Pickups).
 3. **Enemies:** stomps and hurts (see The rule).
 4. **Springs:** launches (see Springs).
+5. **Checkpoints:** raises them (see Checkpoints).
 
 The order is a game design decision, not left to when Godot happens to
 fire signals. Pickups come before enemies, so a player with 1 health who
@@ -46,7 +53,7 @@ launched by the spring: the spring's launch wins over the stomp's bounce.
   a floor or wall.
 - Touching is found with an `Area2D` on the player, with no
   `collision_layer` and a `collision_mask` of the `walkers`, `enemies`,
-  `pickups`, `springs` and `doors` layers (see `overview.md`). Doors are
+  `pickups`, `springs`, `doors` and `checkpoints` layers (see `overview.md`). Doors are
   read from the same list, but in the win step, before any contact
   (`door.md`). Its `CollisionShape2D` uses the **same**
   `RectangleShape2D` resource as the player's body, so the two can never
@@ -100,6 +107,15 @@ launched by the spring: the spring's launch wins over the stomp's bounce.
 - Launched in any other state, in the air, and while invincible. Not by a
   dead player.
 
+## Checkpoints
+
+- `area is Checkpoint`: the player calls the checkpoint's `touch()`
+  (`checkpoint.md`). A raised checkpoint ignores it.
+- Touched in any state, in the air, and while invincible.
+- It comes last, after the enemies. Whether a player killed by an enemy
+  in the same update still raises it does not matter: either way it
+  respawns standing on ground (`checkpoint.md`).
+
 ## The rule
 
 The player can only stomp while in the **Fall** state (see
@@ -113,7 +129,8 @@ For the enemies overlapping the player in this update (step 3):
    stomped. So landing on any number of them at once stomps all of them.
 2. The **player** is hurt (see `player-damage.md`), unless invincible, if
    any overlapping enemy was not stomped: a stompable one while the player
-   was not in Fall, or any non-stompable one.
+   was not in Fall, or any non-stompable one. A harmless shell (see above)
+   never counts.
 
 The player is hurt at most once per update, however many enemies cause it.
 Landing on a walker while touching a crusher stomps the walker *and* hurts
@@ -135,6 +152,10 @@ Stomping works while the player is invincible too.
   itself off and hides (`process_mode = PROCESS_MODE_DISABLED`,
   `visible = false`), and adds its own death scene in its place. Switched
   off, it is out of physics, so it cannot be touched again.
+- The one exception is walker B, whose first two stomps turn it into a
+  still shell and then kick it, without switching it off
+  (`enemy-walker.md`, Walker B: the shell). Only its third stomp is a
+  death.
 - The death scene is added to the level (`level.add_effect()`), not as a
   child of the enemy: a child of a switched-off, hidden node would be switched off and
   hidden too.
@@ -143,7 +164,7 @@ Stomping works while the player is invincible too.
 
 | Case | Expected |
 |---|---|
-| Player falls onto a walker | Walker is switched off and hidden, its death scene appears in its place; player `velocity.y` within 0.001 of -227.37 (`overview.md`, Tests), state Bounce |
+| Player falls onto a walker A | Walker is switched off and hidden, its death scene appears in its place; player `velocity.y` within 0.001 of -227.37 (`overview.md`, Tests), state Bounce |
 | Player walks into a walker on the floor | Player is hurt (health goes down by 1) |
 | Player rises into a walker from below | Player is hurt |
 | Player stays overlapping a walker until invincibility ends | Player is hurt again |
@@ -160,3 +181,13 @@ Stomping works while the player is invincible too.
 | Player reaches the flag's x while touching an enemy | Won; not hurt |
 | Player falls onto a walker and a spring in the same update | Walker stomped, then launched: `velocity.y == -445.5`, state Spring |
 | Player touches a spring while already in Spring | Not launched again |
+| Player falls onto a walking walker B | It becomes a still shell; player bounces (state Bounce) |
+| Player bounces off a fresh still shell and is still overlapping it on the next updates | Not hurt, shell not kicked (the player is in Bounce, not Fall) |
+| Player falls onto a still shell | Shell kicked away from the player; player bounces |
+| Player falls onto a kicked shell | Shell flattened; player bounces |
+| Player walks into a still or kicked shell, or a kicked shell runs into the player | Not hurt |
+| Player walks into a walking walker B | Player is hurt |
+| Player falls onto a walker C | Player is hurt; walker C is not stomped and the player does not bounce |
+| Invincible player falls onto a walker C | Nothing happens |
+| Player touches a checkpoint that is down | It is raised and becomes the respawn point (`checkpoint.md`) |
+| Player touches a raised checkpoint | Nothing happens |

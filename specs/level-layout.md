@@ -15,24 +15,26 @@ to the builder.
   `Node2D` with its own script, `res://levels/level_<n>.gd`, which
   `extends Level`. Nothing else is saved in the scene: the root builds all
   its children when the game runs.
-- The game starts at level 1: the project's main scene
-  (`application/run/main_scene`) is `res://levels/level_1.tscn`.
+- The game starts at the title screen, and pressing space starts level 1
+  (`game-flow.md`).
 - Levels are played in a straight line, one way: level 1, then level 2,
-  and so on. No going back and no level select. How a won level moves on
-  to the next comes with the later spec on what follows a win (`flag.md`).
+  and so on, and the last level leads back to the title screen. No going
+  back and no level select (`game-flow.md`).
 - No `@tool` and no `@export`: a level is plain text in its script. One
   level, one script, like one stylesheet per page.
 - `Level` declares one abstract function, `@abstract func layout() -> void`.
   Every level script must implement it, with that exact signature, or
   GDScript reports an error. `layout()` does nothing but set these
-  fields:
+  fields. The level script declares nothing and checks nothing: `Level`
+  declares every field and does every check (see Checking the layout),
+  like a stylesheet that only sets properties while the browser does the
+  rest.
 
 | Field | Type | Meaning |
 |---|---|---|
 | `biome` | `Level.Biome` (`SNOW`, `GRASS`, `DESERT`) | Which tile look the level uses |
 | `floors` | `Array[Vector2i]` | The ground, left to right (see Floors) |
 | `has_water` | `bool` | Whether the level has water along the bottom (see Water) |
-| `player_cell` | `Vector2i` | Where the player starts (`camera.md`) |
 | `blocks` | `Array[BlockSpawn]` | Breakable and gift blocks, in one list (`breakable-block.md`, `gift-block.md`) |
 | `coins` | `Array[Vector2i]` | Cells (`coins.md`) |
 | `walkers` | `Array[WalkerSpawn]` | `enemy-walker.md` |
@@ -41,13 +43,18 @@ to the builder.
 | `crushers` | `Array[Vector2i]` | Cells (`enemy-crusher.md`) |
 | `springs` | `Array[Vector2i]` | Cells (`spring.md`) |
 | `doors` | `Array[Vector2i]` | Cells: each door's bottom tile (`door.md`) |
+| `checkpoints` | `Array[Vector2i]` | Cells: each checkpoint's bottom tile (`checkpoint.md`) |
 | `bars` | `Array[BarSpawn]` | `enemy-bar.md` |
 | `platforms` | `Array[PlatformSpawn]` | One-way platforms; each gets a random look from its biome's (`one-way-platform.md`) |
 | `ladders` | `Array[LadderSpawn]` | Ladders (`ladder.md`) |
 
 A field the level script doesn't set keeps its type's default: an empty
-list, `has_water` false, `player_cell` (0, 0), and `biome` `SNOW` (the
-enum's first value).
+list, `has_water` false, and `biome` `SNOW` (the enum's first value).
+
+The level script never says where the player starts or where the flag
+stands: like the flag at the right end, the player always starts at the
+left end, on the start floor (see Floors). The level script fills in what
+lies between them.
 
 Example:
 
@@ -58,16 +65,16 @@ func layout() -> void:
 	biome = Biome.GRASS
 	has_water = false
 	floors = [Vector2i(10, 11), Vector2i(3, 15), Vector2i(13, 9)]
-	player_cell = Vector2i(2, 10)
 	blocks = [
-		BreakableBlockSpawn.new(Vector2i(5, 7)),
-		BreakableBlockSpawn.new(Vector2i(6, 7)),
-		GiftBlockSpawn.new(Vector2i(7, 7), GiftBlockSpawn.Variant.A, GiftBlockSpawn.Contents.DIAMOND),
+		BreakableBlockSpawn.new(Vector2i(9, 7)),
+		BreakableBlockSpawn.new(Vector2i(10, 7)),
+		GiftBlockSpawn.new(Vector2i(11, 7), GiftBlockSpawn.Contents.DIAMOND),
 	]
-	coins = [Vector2i(14, 6), Vector2i(15, 6)]
-	walkers = [WalkerSpawn.new(Vector2i(8, 10), WalkerSpawn.Variant.B)]
-	flyers = [FlyerSpawn.new(Vector2i(12, 4), 36.0)]
-	bars = [BarSpawn.new(Vector2i(16, 5), 2, 0.0, true)]
+	coins = [Vector2i(18, 6), Vector2i(19, 6)]
+	walkers = [WalkerSpawn.new(Vector2i(12, 10), WalkerSpawn.Kind.SHELL)]
+	flyers = [FlyerSpawn.new(Vector2i(16, 4), 36.0)]
+	bars = [BarSpawn.new(Vector2i(20, 5), 2, 0.0, true)]
+	checkpoints = [Vector2i(25, 8)]
 ```
 
 - `biome` sets `Ground`'s, `GroundPieces`' and `RopeCeilings`' `tile_set`
@@ -76,8 +83,8 @@ func layout() -> void:
   `MushroomDecorations`' `tile_set` to
   that biome's decorations `TileSet` (see Decorations), and the
   `Background`'s picture (`background.md`).
-- `Level._ready()` calls `layout()`, adds the end floor, checks the
-  layout, then builds everything (see Building).
+- `Level._ready()` calls `layout()`, adds the start and end floors,
+  checks the layout, then builds everything (see Building).
 
 ## Floors
 
@@ -87,30 +94,54 @@ The ground is an ordered list of floors, each a `Vector2i(width, row)`:
 - **`row`**: the tile row of the floor's top surface, counted from
   row **0** at the top of the screen, like Godot's y. Row 5 means the ground
   starts 5 rows down.
-- Floors follow each other with no overlaps or holes. The first floor
-  starts at x = 0.
+- Floors follow each other with no overlaps or holes. The start floor
+  (below) starts at x = 0, so the first written floor starts at column 7.
 - Each floor is filled solid, from its surface row down to **row 14**, the
   last row the screen shows (rows are `Grid.TILE` high, so row 14 is 252–270 and only
   its top 5 px are on the 257 px screen).
-- **A gap** is a floor whose row is 15 or more: below the screen, so
-  nothing is drawn. **With water** (`has_water` on), a floor on row 13 or
-  14 is a gap too: it would be under the water, so no ground is built
-  there. Walkers, the diamond and springs that walk or fall in sink
-  behind the water and off the bottom of the screen, where their enablers
-  switch them off for good, instead of walking along under the water.
-  Everything that treats gaps (ground cells, spikes, ground pieces,
-  occupied cells, the jump check) treats these floors the same way.
-- **The end floor:** right after `layout()`, the level root adds one more
-  floor to the end of `floors`: `Vector2i(10, 12)`, 10 columns on row 12.
-  The level script never writes it. It holds the flag's column (the 10th
-  from the right, `flag.md`) and the 9 columns after it, so the flag always
-  stands on ground, above the water (rows 13 and 14). From then on
-  `floors` means the whole list, end floor included: the width, building,
-  decorations and the jump check all use it, so the jump from the last
-  written floor onto the end floor is checked too.
+- **A gap** is a floor whose row is `gap_row` or more (see Level end, gap
+  line and death line): no ground is built there. `gap_row` is a line
+  that moves with the water: **15** without water, just below the screen,
+  and **13** with water (`has_water` on), the water's surface row, since
+  ground there would be under the water. Walkers, the diamond and springs
+  that walk or fall into the water sink behind it and off the bottom of
+  the screen, where their enablers switch them off for good, instead of
+  walking along under the water. Everything that treats gaps (ground
+  cells, spikes, decorations, ground pieces, occupied cells, the jump
+  check) uses `gap_row` and nothing else.
+- **The start and end floors:** right after `layout()`, the level root
+  adds one floor to the front of `floors` and one to the end. The level
+  script never writes them. Both are constants on `Level`:
+  - **`START_FLOOR`**, `Vector2i(7, 12)`: 7 columns on row 12, columns 0
+    to 6. The player starts on it, standing in **`PLAYER_CELL`**,
+    `Vector2i(4, 11)`, the 5th tile (`camera.md`, Starting position),
+    unless a checkpoint was touched (`checkpoint.md`). From there to the
+    floor's right edge is 45 px, more than the 34 px the player needs to
+    reach top walking speed, so the first jump can always be made at full
+    speed.
+  - **`END_FLOOR`**, `Vector2i(10, 12)`: 10 columns on row 12. It holds the
+    flag's column (the 10th from the right, `flag.md`) and the 9 columns
+    after it.
+  - Both are on row 12, so the player and the flag always stand on ground,
+    above the water (rows 13 and 14).
+  - From then on `floors` means the whole list, start and end floors
+    included: the width, building, decorations and the jump check all use
+    it, so the jumps off the start floor and onto the end floor are checked
+    too.
+- **The start and flag areas:** the start floor's columns (0 to 6) are the
+  **start area**, the end floor's columns (the flag's column to the last
+  column) the **flag area**. Nothing is placed there, from any list (see
+  Checking the layout), so the player's start and the flag are always
+  clear. Big decorations keep away from both areas too (see Big
+  decorations).
+- **Naming a floor:** a message names a written floor by its index in the
+  list the level script wrote, counted from 0, with its columns and row,
+  so it needs no counting by hand: `floors[3] (columns 14 to 16, row 9)`.
+  The two added floors are `start floor` and `end floor`.
 
-Example: `[Vector2i(10, 11), Vector2i(3, 15), Vector2i(8, 9)]` is 10 tiles of
-ground at row 11, a 3-tile gap, then 8 tiles of ground 2 rows higher.
+Example: `[Vector2i(10, 11), Vector2i(3, 15), Vector2i(8, 9)]` is the start
+floor (columns 0 to 6), then 10 tiles of ground at row 11, a 3-tile gap,
+then 8 tiles of ground 2 rows higher, then the end floor.
 
 ## Placing things
 
@@ -128,72 +159,93 @@ silent mistake.
 | Class | `_init` arguments |
 |---|---|
 | `BreakableBlockSpawn` | `cell: Vector2i` |
-| `WalkerSpawn` | `cell: Vector2i, variant: Variant` (`enum Variant { A, B, C }`: `walker_a/`, `walker_b/`, `walker_c/`) |
-| `GiftBlockSpawn` | `cell: Vector2i, variant: Variant, contents: Contents` (`enum Variant { A, B, C }`: `gift_block_a/` to `gift_block_c/`; `enum Contents { COIN, DIAMOND }`) |
+| `WalkerSpawn` | `cell: Vector2i, kind: Kind` (`enum Kind { PLAIN, SHELL, SPIKED }`: walker A, B or C, each with its own behaviour, `enemy-walker.md`) |
+| `GiftBlockSpawn` | `cell: Vector2i, contents: Contents` (`enum Contents { COIN, DIAMOND }`; its look is picked at random, `gift-block.md`) |
 | `FlyerSpawn` | `cell: Vector2i, bob_distance: float` |
 | `BarSpawn` | `cell: Vector2i, units: int, start_angle: float, clockwise: bool` |
 | `PlatformSpawn` | `cell: Vector2i, width: int` (`cell` is the platform's left end) |
 | `LadderSpawn` | `cell: Vector2i, height: int` (`cell` is the ladder's bottom; it grows up) |
 
+- **Only choices that matter:** a spawn holds only what changes how the
+  level plays. A look that changes nothing (a gift block's, a door's, a
+  platform's) is never written: the level picks it at random at build
+  time, so the level script only decides things like what a gift block
+  holds or which kind of walker goes where.
 - **Blocks:** `BlockSpawn` is `@abstract` and holds only `cell`.
   `BreakableBlockSpawn` and `GiftBlockSpawn` extend it, so both kinds go in
   the one typed `Array[BlockSpawn]`, and the level builds each with the
   scene for its class (`spawn is GiftBlockSpawn`).
-- A kind with no settings (coins, crushers, springs, doors) is just a list of cells.
+- A kind with no settings (coins, crushers, springs, doors, checkpoints) is just a list of cells.
   Leapers are just a list of columns: their row is always 14, behind the
   water (`enemy-leaper.md`).
 - **One thing per cell:** no two things share a cell, in any list or
   across lists. Bars, flyers and leapers only check their own list (see
   Checking the layout, Occupied cells).
+- **Between the start and the flag:** everything placed, from every list,
+  goes in columns 7 to the column left of the flag: never in the start or
+  flag area.
 
 ### Checking the layout
 
-Right after `layout()` and the end floor, before anything is built, the
-level root checks the values the level script wrote, like validating input
-before doing any work. Each check's message names the field and the bad
-value, so a mistake stops the build at once. The checks read only the
-written fields (`floors`, `has_water`, `player_cell`, the lists), never
-built nodes or physics.
+Right after `layout()` and the start and end floors, before anything is
+built, the level root checks the values the level script wrote, like
+validating input before doing any work. The checks read only the written
+fields (`floors`, `has_water`, the lists), never built nodes or physics.
 
-- **One function does all the checks**, `_layout_error() -> String`: it
-  returns the first problem's message, or `""` when there is none.
-  `_ready` asserts on it right there:
-  `var error := _layout_error()` then `assert(error == "", error)`. An
-  `assert` inside the helper would stop only the helper, and `_ready`
-  would go on to build the bad level (`overview.md`, Running from the
-  command line).
+- **Errors are collected, never asserted:** the level root has
+  `var errors: Array[String]`. Every check appends a message for each
+  problem it finds and goes on, so **one run shows every mistake**, not
+  just the first. Each message names the field and the bad value (a floor
+  by its index, see Floors).
+- **One function does all the checks**, `_check_layout() -> void`, which
+  only appends to `errors`. `_ready` then looks at `errors` itself:
+  if any, it prints each with the built-in `push_error()`, calls
+  `get_tree().quit(1)` and returns, so nothing is built. No `assert`: an
+  `assert` inside a helper stops only the helper (`overview.md`, Running
+  from the command line), and asserts are left out of release exports.
+- `quit()` lets the current frame finish first (tested on Godot 4.7.2: one
+  more `_process` ran), which is harmless here, since nothing is built
+  yet. The run exits with **code 1**, and each message shows in the output
+  as an `ERROR:` line, followed by the line of the script that pushed it.
+  Without this, a run always exits with code 0 (`overview.md`).
+- The jump check (see Jump check) appends to the same `errors` at the end
+  of building, and is handled the same way.
 
-Outside the editor (a headless run, a snapshot), a failed `assert` only
-prints `SCRIPT ERROR: Assertion failed: <message>` to the output and stops
-`_ready` there: the game keeps running with a half-built level and exits
-with code 0 (tested on Godot 4.7.2). So after every run and every snapshot,
-read the output for `Assertion failed`. (Asserts are left out of release
-exports, so these checks only run in debug builds.)
+The checks:
 
-- **`floors`:** every width is 1 or more, and the level, end floor
-  included, is **1 to 10 screens wide**:
+- **`floors`:** every width is 1 or more, and the level, start and end
+  floors included, is **1 to 10 screens wide**:
   `Screen.width <= level_end_x <= 10 * Screen.width`, which is 26 to 255
-  columns. So the written floors cover 16 to 245 columns: everything left
-  of the flag. Narrower than a screen, the camera's clamp (`camera.md`)
-  would have nowhere to go.
-- **`player_cell`:**
-  - its column is 0 or more, and left of the flag's column (`flag.md`):
-    on or past the flag, the player would win on its first update
-  - its row is free. Negative (above the screen): the player drops in from
-    the top. On or below the death line: the player dies on its first
-    update, which is allowed.
-- **Inside the level:** every cell in `blocks`, `coins`, `walkers`,
-  `flyers`, `crushers`, `bars`, `springs` and `doors` has a column from 0 to the last column,
-  like the leapers below, and so does every cell of every platform in
-  `platforms` and every ladder in `ladders`. Rows are free.
+  columns. So the written floors cover 9 to 238 columns: everything
+  between the start floor and the flag. Narrower than a screen, the
+  camera's clamp (`camera.md`) would have nowhere to go.
+- **Between the start and the flag:** every cell in `blocks`, `coins`,
+  `walkers`, `flyers`, `crushers`, `bars`, `springs`, `doors` and
+  `checkpoints`, every cell of every platform in `platforms` and every
+  ladder in `ladders`, and every column in `leapers` has a column from 7
+  to the column left of the flag. Columns 0 to 6 are the start area, the
+  flag's column to the last column the flag area (see Floors), and any
+  other column is outside the level: the message says which, e.g. `"coin
+  at (1, 6) is in the start area"`. Rows are free.
 - **`platforms`:** every width is 1 or more, like the floors.
 - **`ladders`:** every height is 1 or more.
+- **Nothing to stand on under the water:** with `has_water` on, no block,
+  no platform cell and no ladder's top cell is on row 13 or 14. The player
+  dies only when its feet reach the bottom of the screen (see Level end,
+  gap line and death line), so standing on one of these would be standing
+  in the water.
+- **`checkpoints`:** the cell under each checkpoint is ground (a cell of a
+  floor that is not a gap, from its surface row down to row 14) or a cell
+  of a platform, so the player always respawns standing on something
+  (`checkpoint.md`). The message names the checkpoint, e.g.
+  `"checkpoint at (25, 8) has no ground or platform under it"`.
 - **`blocks`:** a gift block holding a diamond is on row 1 or more. On
   row 0, the cell its diamond comes out into is above the screen, where
   the diamond's enabler would switch it off for good.
 - **`leapers`:** only allowed when `has_water` is on (a leaper always
-  leaps out of the water), and every column is inside the level (0 to the
-  last column).
+  leaps out of the water). Water is not turned on by the leapers: it also
+  moves the death line, turns low floors into gaps and swaps the spikes
+  for water, so the level script turns it on itself.
 - **`flyers`:** the flyer's whole sprite is on screen at both ends of its
   path (a `bob_distance` of 0 is allowed: it hovers, `enemy-flyer.md`):
   for the start `y = cell_to_position(cell, Origin.CENTRE).y` and the other end
@@ -210,14 +262,23 @@ lookup of taken cells:
 
 - `var occupied: Dictionary[Vector2i, String]`, keyed by cell. A cell that
   is not in it is air: `occupied.get(cell, "")` returns `""`. A taken cell
-  holds what took it, for example `"coin at (14, 6)"`, so the `assert`
-  message can name both things:
+  holds what took it, for example `"coin at (14, 6)"`, so the message can
+  name both things:
   `"walker at (14, 6) overlaps coin at (14, 6)"`.
-- Taking a cell: if `occupied.get(cell, "")` is not `""`, the `assert`
-  fails, unless an exception below allows it; otherwise the cell is stored.
+- Taking a cell reads first, then sets: if `occupied.get(cell, "")` is not
+  `""`, an error is appended to `errors`, unless an exception below allows
+  it, and the cell keeps what took it first; otherwise the cell is stored.
+  The order below is fixed by the level root, never by the order the level
+  script wrote its fields in, so the same mistake is always caught the
+  same way.
+- Every cell a thing takes, not only its own cell, must be between the
+  start and the flag (see the checks above): a walker B's whole box, a
+  door's or checkpoint's top, the cell above a gift block holding a
+  diamond.
 - Cells are taken **in this order**:
   1. **ground:** every cell of every floor that is not a gap, from its
-     surface row down to row 14, as `"ground"`
+     surface row down to row 14, named by its floor (see Floors), e.g.
+     `"walker at (14, 8) overlaps floors[3] (columns 14 to 16, row 8)"`
   2. **platforms:** every cell of every platform, as
      `"platform at (c, r)"` (its left end). Mushroom stalks take no cells:
      they are purely visual. The look is picked later, while building, so
@@ -228,25 +289,30 @@ lookup of taken cells:
      (`diamond.md`), as `"diamond above gift block at (c, r)"`. So nothing
      solid can be there for the diamond to start inside. A gift block
      holding a coin takes only its own cell: the coin is purely visual.
-  4. **the player**, its own cell
-  5. **coins**
-  6. **springs**, each its own cell
-  7. **doors**: each its own cell and the cell above it, where its top
+  4. **coins**
+  5. **springs**, each its own cell
+  6. **doors**: each its own cell and the cell above it, where its top
      reaches (`door.md`), as `"door at (c, r)"` and
      `"top of door at (c, r)"`
-  8. **walkers**: walkers A and C their own cell. **Walker B** takes all six
+  7. **checkpoints**: each its own cell and the cell above it, like a
+     door, as `"checkpoint at (c, r)"` and `"top of checkpoint at (c, r)"`
+  8. **walkers**: walker A (`Kind.PLAIN`) and walker C (`Kind.SPIKED`)
+     their own cell. **Walker B** (`Kind.SHELL`) takes all six
      cells its 24 × 20 box covers, since it reaches 3 px into the cells on
      each side and 2 px into the row above: for a walker B in cell (c, r),
      (c - 1, r), (c, r), (c + 1, r) and (c - 1, r - 1), (c, r - 1),
      (c + 1, r - 1). So nothing else can be placed where its box is, and
      two walker Bs need two free columns between them.
   9. **crushers**, each its own cell (its 16 × 18 box fits inside it)
+- The player takes no cell here: it starts in `PLAYER_CELL`, in the start
+  area, where nothing else can be, or in a checkpoint's cell, which the
+  checkpoint already took.
 - **Bars, flyers and leapers are not in this check.** They collide with
   nothing, so they are free to be anywhere: in the ground, on a block or on
   another thing. Each only checks its own list for duplicates: no two bars
   on one cell, no two flyers on one cell, no two leapers in one column. A
   duplicate means two of them sit exactly on top of each other, so it
-  fails an `assert` naming the list and the cell (or column). Their own
+  appends an error naming the list and the cell (or column). Their own
   checks above still apply.
 - A walker or crusher in a free cell boxed in by ground is allowed: odd,
   but legal.
@@ -308,8 +374,9 @@ already there.
 `Level._ready()` does all of this in one go, so no update runs before the
 whole level exists.
 
-1. Calls `layout()`, adds the end floor (see Floors), then checks the
-   layout (see Checking the layout).
+1. Calls `layout()`, adds the start and end floors (see Floors), then
+   checks the layout (see Checking the layout). With any errors it stops
+   there: nothing is built.
 2. Creates its children **in this order**. Godot draws later children on
    top, like layers in a drawing program, so no `z_index` is needed:
    1. `Background` (`Parallax2D`, see `background.md`), drawn behind
@@ -329,7 +396,7 @@ whole level exists.
    10. `BlockItems` (`Node2D`): empty at the start; the coins and diamonds
        that come out of gift blocks, drawn behind every block
    11. `Blocks` (`Node2D`): the blocks, in list order
-   12. `Coins`, `Springs`, `Doors` (a `Node2D` each)
+   12. `Coins`, `Springs`, `Doors`, `Checkpoints` (a `Node2D` each)
    13. `Walkers`, `Flyers`, `Leapers`, `Crushers`, `Bars` (a `Node2D` each)
    14. `Player`
    15. `Water` (`TileMapLayer`)
@@ -341,6 +408,9 @@ whole level exists.
    18. `Camera` (draws nothing; after the player, see `camera.md`)
    19. `HUD` (`CanvasLayer`, see `hud.md`): drawn on the screen, in front
        of the whole level, wherever it sits in this list
+   20. `Iris` (`CanvasLayer`, see `game-flow.md`), only when the level is
+       the scene being played (`is_main`, `game-flow.md`): drawn in front
+       of the HUD
 3. Fills the tile layers:
    1. every solid cell of `Ground`, with the built-in
       `set_cells_terrain_connect(cells, 0, 0)` (terrain set 0, the
@@ -354,7 +424,10 @@ whole level exists.
       (`Level.show_guides` on): see Snapshot.
    4. if `has_water`, the water (see Water); if not, the spikes (see Spikes)
 4. Sets the starting positions (`camera.md`, Starting position).
-5. Runs the jump check (see Jump check).
+5. Runs the jump check (see Jump check), then stops on any errors it
+   found.
+6. Starts the level: pauses the game and opens the iris
+   (`game-flow.md`, Starting a level).
 
 - So the leaper is in front of the waterfalls but behind the water, and a
   death scene (in `Effects`) falls in front of the water.
@@ -406,8 +479,8 @@ spikes. Purely visual, like the water.
 - When `has_water` is **off**, `Spikes` gets a spike tile on **row 13** of
   every column of every gap.
 - **The spikes stand on the death line**, not on the grid: the `Spikes`
-  layer's `position.y` is `death_y - 14 * Grid.TILE` (5 px), the gap
-  between the bottom of row 13 and `death_y`. So a row-13 tile is drawn
+  layer's `position.y` is `Screen.height - 14 * Grid.TILE` (5 px), the gap
+  between the bottom of row 13 and the death line. So a row-13 tile is drawn
   from y 239 to 257, and the spikes from y 248 down to exactly 257, the
   death line and the bottom of the screen. On the grid they would end at
   252 and float 5 px above the bottom.
@@ -416,8 +489,8 @@ spikes. Purely visual, like the water.
 - `Spikes` is drawn right after `Ground`, so waterfalls, blocks, items,
   enemies and the player are drawn in front of it.
 - Nothing touches the spikes. The player dies when its feet reach the
-  death line (`death_y`, 257 without water), the spikes' base, so falling
-  into a gap looks like landing in the spikes.
+  death line (`Screen.height`, 257), the spikes' base, so falling into a
+  gap looks like landing in the spikes.
 
 ## Decorations
 
@@ -432,9 +505,8 @@ player and enemies never touch them.
   source (Texture Region Size 18 × 18, Separation 0, Margins 0), no physics
   layer, no terrains.
 - **Which floors:** checked once per floor, before anything is placed.
-  Floors whose row is **14 or more** never get decorations, or **13 or
-  more** when `has_water` is on (that ground is under the water). Gaps
-  never get decorations.
+  Gaps never get decorations, and neither does a floor on **row 14**
+  (only its top 5 px are on screen).
 - **Placement:** every surface tile of a decorated floor has a **20 %**
   chance (`randf() < 0.2`) of a decoration. The decoration is picked with
   `randi_range`, each candidate equally likely. The candidates are the
@@ -456,6 +528,13 @@ player and enemies never touch them.
 Trees (`trees.md`), pipes (`pipes.md`) and ropes (`ropes.md`) are big
 decorations. They share one candidate in the roll above and one cooldown.
 
+- **Away from the start and the flag:** a big decoration is only planted
+  on a surface tile at least **5 columns** from the start area and from
+  the flag area: from column 12 to the 6th column left of the flag's
+  column. 5 columns is the furthest a big decoration reaches sideways from
+  its tile (a pipe's second leg; a tree's or rope's supporting pieces
+  reach 4), so none of it is ever drawn over the start or the flag.
+  Outside those columns there is no big-decoration candidate.
 - **Which kinds are allowed on a surface tile:** a tree when `biome` is
   `GRASS`; a pipe when `has_water` is on; a rope in every biome, but only
   on a floor whose row is 8 or more. When none is allowed on that tile,
@@ -556,13 +635,22 @@ godot --path . --write-movie snapshots/level_1_page_0.png --quit-after 2 res://t
   is its own run, so they would come out differently on every page and
   every snapshot and get in the way of reading the level. Everything else
   is built as usual: the ground, water, spikes, platforms, ladders and
-  every placed thing. (The platforms' looks and the doors' variants are
-  still picked at random, so those can differ between pages.)
+  every placed thing.
+- **The same looks on every page:** the rest of the build still picks at
+  random (the platforms', doors' and gift blocks' looks, the ground's two
+  fills), so the snapshot seeds Godot's random numbers with a fixed
+  number, `seed(1)`, before it adds the level. Every page of a level then
+  shows the same looks. Tested on 4.7.2: after `seed()`, `pick_random()`,
+  `randi_range()` and terrain painting come out the same on every run.
+  Editing the level script can change which looks come out, since things
+  may then ask for random numbers in a different order; that is fine.
 - `res://tools/snapshot.tscn` has one script. It reads the level number and
   the page from `OS.get_cmdline_user_args()` (everything after `--`).
 - It sets `Level.show_guides = true` (a `static var` on `Level`, false
-  otherwise), instantiates `res://levels/level_<n>.tscn` and adds it. The
-  level builds itself as usual.
+  otherwise), calls `seed(1)`, instantiates `res://levels/level_<n>.tscn`
+  and adds it. The level builds itself as usual. It is not the scene being
+  played (`is_main` is false, `game-flow.md`), so it has no iris and does
+  not pause itself.
 - Then it pauses the game (`get_tree().paused = true`), so everything stays
   exactly where it was placed, and puts the camera on the page.
 - **Pages step by whole tiles:** page `p` puts the camera's left edge at
@@ -604,16 +692,20 @@ signal of `Guides` and draws with `guides.draw_line()` and the like.
 The loop is: edit a cell in the level script, take a snapshot, look, edit
 again.
 
-## Level end and death line
+## Level end, gap line and death line
 
 - `level_end_x` is a read-only property (a GDScript getter) on the level
   root: the sum of all floor widths × `Grid.TILE`. It is the right edge of the
   ground, where the camera stops (`camera.md`).
-- `death_y` is a read-only property (a GDScript getter) on the level root:
-  the height at which the player dies (`player-damage.md`).
-  - Without water: `Screen.height` (257), the bottom of the screen.
-  - With water: **234** (`13 * Grid.TILE`), the top of the water surface, so the
-    player dies on touching the water.
+- `gap_row` is a read-only property (a GDScript getter) on the level root:
+  the row from which a floor is a gap and no ground is built (see Floors).
+  **15** without water, **13** with water.
+- **The death line** is the same in every level: `Screen.height` (257),
+  the bottom of the screen. The player dies when its feet reach it
+  (`player-damage.md`). It does not move with the water: a player who
+  falls into the water sinks behind it (`Water` is drawn after `Player`)
+  for its last 23 px, then dies. No property holds it; code uses
+  `Screen.height`.
 
 ## Jump check
 
@@ -622,14 +714,16 @@ can be crossed from start to finish: from everything the player can stand
 on, there is a way onward to the right.
 
 - **Standable things** are every floor that is not a gap, and every
-  one-way platform (`one-way-platform.md`). A floor or platform whose row
-  is 15 or more, or 13 or more with `has_water` on, is not standable:
-  standing there means being on or past the death line.
+  one-way platform (`one-way-platform.md`) whose row is less than
+  `gap_row`. (With water, a platform that low is already an error, see
+  Checking the layout; without water, one on row 15 or more is below the
+  screen.)
 - **Ahead:** one standable thing is ahead of another when its right edge is
   further right. (So a floor that runs on under a platform and past it is
   ahead of that platform, and a platform that starts above a floor but ends
   past it is ahead of that floor.)
-- The check walks the floors first, then the platforms. For each standable
+- The check walks the floors first, start floor included (so the first
+  jump is checked too), then the platforms. For each standable
   thing, it has up to **two targets**: the first floor ahead of it (the
   next standable one in `floors`, which runs left to right, skipping gaps)
   and the first platform
@@ -669,13 +763,16 @@ on, there is a way onward to the right.
   right at top speed, and a real player lands on a narrow target by letting
   go of right sooner.
 - **A failing jump stops the build**, like the layout checks: the level is
-  only accepted if it can be crossed. The check first goes through **every**
-  standable thing and collects all that fail (no target works), then, if
-  any failed, one `assert` fails with a message listing each of them (which
-  floor or platform, and its right edge's cell), so one run shows
-  everything to fix.
+  only accepted if it can be crossed. The check goes through **every**
+  standable thing and appends one message to `errors` for each that fails
+  (no target works), naming the floor (see Floors) or the platform by its
+  index, with its right edge's cell, e.g.
+  `"floors[3] (columns 14 to 16, row 9): no jump onward from (16, 9)"`.
+  So one run shows everything to fix, printed and stopped the same way as
+  the layout errors (see Checking the layout). The level is already built
+  here, so one more frame runs before the quit, which is harmless.
 - **In a snapshot** (`Level.show_guides` on) the check does not stop the
-  build: it draws a red marker at the right edge of each failing thing
+  build: the messages are still printed, and it draws a red marker at the right edge of each failing thing
   instead (see Snapshot), so the failures can be seen in place.
 - Ladders (`ladder.md`) are not part of the check, and a ladder's top is
   not a standable thing here: every level must be crossable by jumping
@@ -718,14 +815,14 @@ may go anywhere.
 
 | Case | Expected |
 |---|---|
-| `[Vector2i(30, 11)]` | `Ground` cells in columns 0 to 29, rows 11 to 14, then the end floor in columns 30 to 39, rows 12 to 14; no other `Ground` cells |
+| `[Vector2i(30, 11)]` | `Ground` cells: the start floor in columns 0 to 6, rows 12 to 14; columns 7 to 36, rows 11 to 14; then the end floor in columns 37 to 46, rows 12 to 14; no other `Ground` cells |
 | A floor on row 15 | No tiles and no decorations in its columns |
 | A floor on row 14 | Ground tiles, but no decorations |
 | A long floor | About 1 in 5 surface tiles has a decoration or waterfall, from the level's biome |
 | Decorations | Drawn behind the ground, the player and enemies; never block anything |
-| `has_water` on, 30 columns of written floors | Water surface on row 13 and water body on row 14, columns 0 to 39 (end floor included), animating |
+| `has_water` on, 30 columns of written floors | Water surface on row 13 and water body on row 14, columns 0 to 46 (start and end floors included), animating |
 | `has_water` off | No water and no waterfalls |
-| Floors starting `[Vector2i(4, 8), Vector2i(5, 11), ...]` (the level goes on to at least 16 written columns), the pair gets a piece | Start row 12 (one below the lower surface, row 11); left column 1 to 3, right column 4 to 7; rows 12 to 14; outlined, fills mixed |
+| Floors starting `[Vector2i(4, 8), Vector2i(5, 11), ...]`, the pair gets a piece | The written floors start at column 7, so: start row 12 (one below the lower surface, row 11); left column 8 to 10, right column 11 to 14; rows 12 to 14; outlined, fills mixed |
 | Many builds of the same level | About half of the allowed pairs get a piece |
 | A pair where either floor is 1 wide | Never a piece |
 | A pair with a gap, or with a floor on row 14 | Never a piece |
@@ -737,61 +834,75 @@ may go anywhere.
 | `has_water` off, a 3-column gap | A spike tile on row 13 of each of the 3 columns; nothing else in them |
 | Any spike | Spikes drawn from y 248 to 257: their base on the death line and the screen's bottom edge |
 | `has_water` on, a gap | No spikes: water on rows 13 and 14 |
-| Player falls into a gap | Passes the spikes and dies at `death_y` (257); the spikes block nothing |
+| Player falls into a gap | Passes the spikes and dies at the death line (257); the spikes block nothing |
 | A waterfall on a floor on row 8 | Top on row 8, body on rows 9 to 11, base on row 12 |
 | `has_water` on, floor on row 12 | Gets decorations but never a waterfall |
-| `has_water` on, floor on row 13 or 14 | A gap: no ground tiles, no decorations, no ground piece; the jump check skips it |
+| `has_water` on, floor on row 13 or 14 | A gap (`gap_row` is 13): no ground tiles, no decorations, no ground piece; the jump check skips it |
+| `has_water` off, floor on row 14 | Ground (`gap_row` is 15), but no decorations |
 | `has_water` on, a walker walks off a ledge into the water | It sinks behind the water, falls below the screen and is switched off; it never walks under the water |
-| `has_water` on | `death_y` is 234; off, it is 257 |
+| `has_water` on, the player falls into the water | Sinks behind the water and dies when its feet reach y 257, the same death line as without water |
+| `has_water` on, a block, platform cell or ladder top on row 13 or 14 | The build stops with an error |
+| `has_water` off, a block on row 14 | Allowed |
 | Leaper rising from water | In front of waterfalls, behind the water |
 | Any `floors` | `level_end_x` = sum of widths × `Grid.TILE` |
 | Snapshot | Numbered grid and guides shown |
 | Snapshot | No plain decorations, waterfalls, trees, pipes, ropes, ground pieces or plants under mushroom caps; ground, water, spikes, platforms, ladders and placed things as usual |
+| Two snapshots of different pages of the same level | Every platform, door and gift block looks the same in both, and so do the ground's fills |
+| Snapshot | No iris, not paused by the level |
+| Many builds of a long level | No tree, pipe or rope is planted left of column 12 or right of the 6th column left of the flag, and none reaches into the start or flag area |
 | Snapshot with no `snapshots/` folder | Nothing written; create the folder first |
 | Normal run | No grid, no guides |
 | Snapshot page 1 | Camera's left edge at x = 450 |
 | Snapshot page past the level end | Camera's right edge at `level_end_x` |
-| Coin at cell (2, 6) | `position` (36, 108) |
+| Coin at cell (4, 6) | `position` (72, 108) |
 | Walker at cell (5, 10) | `position` (99, 198): feet on top of row 11 |
 | Flyer at cell (5, 4) | `position` (99, 81) |
 | A spawn given a wrong type, e.g. `FlyerSpawn.new(Vector2i(5, 4), "far")` | GDScript error; the level does not run |
 | Level root and every placed thing | No `@tool`, no `@export` |
-| Two items in the same cell, in one list or across lists (for example a coin and a walker) | The build stops with an `assert` naming both, e.g. "walker at (14, 6) overlaps coin at (14, 6)" |
-| A block inside the ground | The build stops with an `assert` |
-| Walker A one column right of a walker B | The build stops with an `assert` (walker B takes that cell) |
-| Two walker Bs two columns apart | The build stops with an `assert` (both take the column between) |
+| Two items in the same cell, in one list or across lists (for example a coin and a walker) | The build stops with an error naming both, e.g. "walker at (14, 6) overlaps coin at (14, 6)" |
+| A block inside the ground | The build stops with an error |
+| A walker A one column right of a walker B | The build stops with an error (walker B takes that cell) |
+| Two walker Bs two columns apart | The build stops with an error (both take the column between) |
 | A bar, flyer or leaper on ground, a block, a coin or another thing | Allowed |
-| Two bars on one cell, two flyers on one cell, or two leapers in one column | The build stops with an `assert` naming the list and the cell or column |
-| A floor with width 0 | The build stops with an `assert` |
-| `player_cell` on a ground cell or a block's cell | The build stops with an `assert` |
-| `player_cell` on row 14 without water (feet at 270, `death_y` 257) | Allowed: the player dies on its first update |
-| `player_cell` on row 12 with water (feet at 234 = `death_y`) | Allowed: the player dies on its first update |
-| `player_cell` on row -2 (above the screen) | Allowed: the player drops in from the top |
-| Written floors 15 columns wide (level 25 columns, under one screen) | The build stops with an `assert` |
-| Written floors 16 or 245 columns wide (level 26 or 255) | Allowed |
-| Written floors 246 columns wide (level 256) | The build stops with an `assert` |
-| Any level | Its last floor is `Vector2i(10, 12)`, added by the level root |
+| Two bars on one cell, two flyers on one cell, or two leapers in one column | The build stops with an error naming the list and the cell or column |
+| A floor with width 0 | The build stops with an error |
+| Any level | Its first floor is `Vector2i(7, 12)` and its last `Vector2i(10, 12)`, both added by the level root; the level script has no `player_cell` |
+| Any level, no checkpoint touched | The player starts in cell (4, 11), standing on the start floor: `position` (81, 216) |
+| Written floors 8 columns wide (level 25 columns, under one screen) | The build stops with an error |
+| Written floors 9 or 238 columns wide (level 26 or 255) | Allowed |
+| Written floors 239 columns wide (level 256) | The build stops with an error |
+| A coin, block, walker, flyer, leaper, crusher, bar, spring, door, checkpoint, platform cell or ladder cell in columns 0 to 6 | The build stops with an error saying it is in the start area |
+| Any of them in the flag's column or right of it, inside the level | The build stops with an error saying it is in the flag area |
+| Any of them in column -1 or past the last column | The build stops with an error saying it is outside the level |
+| A walker B in column 7 (its box reaches column 6) | The build stops with an error: it is in the start area |
+| A door on the column left of the flag | Allowed (the door and its top take one column) |
+| A level with a coin in the start area, a floor 0 wide and two coins on one cell | One run prints all three errors, as `ERROR:` lines, and nothing is built |
+| Any error | The run exits with code 1; a level with no errors runs as usual |
+| An error message about a written floor | Names it by its index and its columns and row, e.g. `floors[3] (columns 14 to 16, row 9)` |
+| A walker inside the ground | The error names the floor, e.g. "walker at (14, 10) overlaps floors[3] (columns 14 to 16, row 9)" |
 | Written floors ending with a floor on row 12, then a 6-column gap | The jump check fails onto the end floor (same row, 6-tile gap): the build stops |
-| `player_cell` in column -1, or in the flag's column or right of it | The build stops with an `assert` |
-| The example level above (26 written columns, 36 in all) | End floor in columns 26 to 35; flag in column 26, x = 468 |
-| A walker or crusher on a ground cell or a block's cell | The build stops with an `assert` naming both |
-| Walker B with ground or anything placed to its left, right, top-left, top or top-right | The build stops with an `assert` naming both |
-| Walker A next to ground, in a free cell | Allowed |
-| A gift block holding a diamond, with ground, a block or anything placed in the cell above it | The build stops with an `assert` naming both |
+| The example level above (26 written columns, 43 in all) | Written floors in columns 7 to 32; end floor in columns 33 to 42; flag in column 33, x = 594; no errors |
+| A checkpoint with a floor's surface cell or a platform cell under it | Allowed |
+| A checkpoint over a gap, over air, or over a block | The build stops with an error naming the checkpoint |
+| A checkpoint with anything placed in its cell or the cell above | The build stops with an error naming both |
+| A walker or crusher on a ground cell or a block's cell | The build stops with an error naming both |
+| Walker B with ground or anything placed to its left, right, top-left, top or top-right | The build stops with an error naming both |
+| A walker A or C next to ground, in a free cell | Allowed |
+| `Kind.PLAIN`, `Kind.SHELL`, `Kind.SPIKED` walkers | Walker A, B and C, every build; A and C take one cell, B its six |
+| Any gift block | Look A, B or C, each equally likely, picked at build time; `GiftBlockSpawn` has no look to set |
+| A gift block holding a diamond, with ground, a block or anything placed in the cell above it | The build stops with an error naming both |
 | A gift block holding a coin, with a block in the cell above it | Allowed |
-| A gift block holding a diamond on row 0 | The build stops with an `assert` |
-| A block, coin, walker, flyer, crusher, bar, spring, door or platform cell in column -1 or past the last column | The build stops with an `assert` |
-| A spring on ground, a block, a coin or a walker's cell | The build stops with an `assert` naming both |
-| A platform 0 wide | The build stops with an `assert` |
-| A platform on ground, a block or another platform | The build stops with an `assert` naming both |
+| A gift block holding a diamond on row 0 | The build stops with an error |
+| A spring on ground, a block, a coin or a walker's cell | The build stops with an error naming both |
+| A platform 0 wide | The build stops with an error |
+| A platform on ground, a block or another platform | The build stops with an error naming both |
 | Any platform | Drawn as one of its biome's looks (`one-way-platform.md`) |
-| Any leaper with `has_water` off | The build stops with an `assert` |
-| A leaper column past the last column | The build stops with an `assert` |
+| Any leaper with `has_water` off | The build stops with an error |
 | A leaper in column 5 | `position` (99, 261): the middle of row 14, behind the water |
 | A flyer with `bob_distance` 0 | Allowed: it hovers in place |
 | A flyer at row 1 (y 27) with `bob_distance` 220 (down to y 247) | Allowed: sprite fully on screen at both ends |
-| A flyer at row 1 with `bob_distance` 221, or `bob_distance` -18 | The build stops with an `assert` |
-| A flyer at row 0 (y 9) | The build stops with an `assert`: its sprite's top is 1 px above the screen |
+| A flyer at row 1 with `bob_distance` 221, or `bob_distance` -18 | The build stops with an error |
+| A flyer at row 0 (y 9) | The build stops with an error: its sprite's top is 1 px above the screen |
 | A level script without `layout()`, or with a different signature | GDScript error |
 | `Level` attached to a node directly | GDScript error (abstract) |
 | A scene added without `setup()` | Stops at its `_ready` with "setup() not called" |
@@ -799,8 +910,8 @@ may go anywhere.
 | An enemy is stomped | Its death scene is in `Effects`, drawn in front of the water |
 | `biome` changed to `GRASS` | `Ground`, `GroundPieces` and `RopeCeilings` use the grass `TileSet`; `Decorations`, `GroundPieceDecorations` and `RopeCeilingDecorations` use the grass decorations `TileSet`; the background is `res://art/backgrounds/sprite_3.png` |
 | Same row, 5-tile gap | Jump check passes |
-| Same row, 6-tile gap | The build stops with an `assert` naming the floor; in a snapshot, a red marker instead |
-| Two failing jumps in one level | One `assert` listing both |
+| Same row, 6-tile gap | The build stops with an error naming the floor; in a snapshot, a red marker instead |
+| Two failing jumps in one level | Both in the errors, printed in one run |
 | Next floor 4 rows higher, no gap | Passes |
 | Next floor 5 rows higher, no gap | Fails |
 | Next floor 1 column wide, same row, 1-tile gap | Passes (the full-speed jump flies over it, but would land past its left edge) |

@@ -40,13 +40,16 @@ How the camera follows the player. Read `overview.md` first.
 
 ## Starting position
 
-The player starts at the level script's `player_cell`. The **level root**
+The player starts in `Level.respawn_cell` (`checkpoint.md`): the start
+floor's `Level.PLAYER_CELL`, (4, 11) (`level-layout.md`, Floors), until a
+checkpoint is touched, then that checkpoint's cell. The **level root**
 sets up the starting positions in its own `_ready`, after building
 everything (`level-layout.md`, Building), in this order:
 
-1. **Player first:** `position = cell_to_position(player_cell, Origin.FEET)`
-   (standing in that cell). `player_cell` has already been checked
-   (`level-layout.md`, Checking the layout), so it needs no clamp.
+1. **Player first:** `position = cell_to_position(respawn_cell, Origin.FEET)`:
+   standing in that cell, on the start floor ((81, 216)) or on the ground
+   under the checkpoint. Both are always inside the level, so it needs no
+   clamp.
 2. **Then the camera:** centres on the player, then clamps so the screen
    stays inside the level:
    `position.x = clamp(player.position.x, Screen.half_width, level_end_x - Screen.half_width)`
@@ -108,9 +111,10 @@ player.position.x = clamp(player.position.x,
 
 | Case | Expected |
 |---|---|
-| `player_cell` in column 0 | Player at x = 9; camera's left edge at x = 0 |
-| `player_cell` in the middle of the level | Camera centred on the player |
-| `player_cell` just left of the flag (11th column from the right) | Player at `level_end_x - 189`; camera's right edge at `level_end_x` |
+| Any level, at the start, no checkpoint touched | Player at (81, 216); camera's left edge at x = 0 |
+| Respawn at a checkpoint in the middle of the level | Player standing in the checkpoint's cell; camera centred on the player |
+| Respawn at a checkpoint less than half a screen from the level end | Camera's right edge at `level_end_x` |
+| Player in the middle of the level | Camera centred on the player |
 | Player walks right past the middle of the screen | Camera moves right with it |
 | Player walks left | Camera stays still |
 | Player walks left into the screen's left edge | Player's origin stays at `camera.left_edge`; `velocity.x` is untouched |

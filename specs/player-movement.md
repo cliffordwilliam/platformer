@@ -39,8 +39,8 @@ Every update runs these steps in this order:
 5. **Decide the state** from the collision results (see States).
 6. **Check the death line** (`player-damage.md`).
 7. **Check the win:** the flag (`flag.md`) or a door (`door.md`).
-8. **Check contact:** blocks, then pickups, then enemies, then springs
-   (`player-contact.md`).
+8. **Check contact:** blocks, then pickups, then enemies, then springs,
+   then checkpoints (`player-contact.md`).
 
 Dying (step 6) and winning (step 7) both pause the game and end the
 update on the spot, so nothing after them runs. So falling past the death

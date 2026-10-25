@@ -8,7 +8,8 @@ builds on.
 
 - Health belongs to the **level**, not to the game: the level root has
   `var health := 2`, so every level starts with **2 health**, and nothing
-  carries over between levels.
+  carries over between levels. A retry after a death reloads the level
+  (`game-flow.md`), so it starts with 2 health too.
 - Each hit takes away 1 health (`level.health -= 1`).
 - The heart in the corner of the screen shows it (`hud.md`).
 - A hit that takes the last health is a death (see Death). Any other hit is
@@ -65,8 +66,8 @@ needs no death state.
 
 At the moment of the hit that kills the player:
 
-1. The game is paused with `get_tree().paused`, and stays paused. What
-   follows a death comes in a later spec.
+1. The game is paused with `get_tree().paused`, and stays paused. The
+   level is then retried (see After the death jump).
 2. The player is switched off completely: hidden (`visible = false`) and
    `process_mode = PROCESS_MODE_DISABLED`. It is not freed, so anything
    pointing at it (such as the camera) stays valid.
@@ -90,12 +91,24 @@ The player death scene is a `Node2D` with a `Sprite2D` showing
    screen. (Physics is stopped while the game is paused, so it could not use
    `move_and_slide()` anyway.)
 
+### After the death jump
+
+Once the death scene's sprite is wholly below the screen (its top,
+`position.y - 25`, at or past `Screen.height`; its origin is the player's
+feet, 25 px below the image's top, `assets.md`), it switches itself off
+and calls `level.on_death()`. The level then closes the iris where the
+player died and reloads itself at the respawn point (`game-flow.md`,
+Death).
+
+### The death line
+
 Falling off the map also kills the player: when the player's `position.y`
-(its feet) reaches the level root's `death_y` (`position.y >= death_y`), the
-player dies the same way as above, and `level.health` is set to 0, so the
-heart shows empty (`hud.md`). `death_y` is the bottom of the screen
-(`Screen.height`, 257), or the top of the water (234) in a level with water
-(see `level-layout.md`).
+(its feet) reaches the death line, the bottom of the screen
+(`position.y >= Screen.height`, 257), the player dies the same way as
+above, and `level.health` is set to 0, so the heart shows empty
+(`hud.md`). The death line is the same with water: a player who falls into
+the water sinks behind it before reaching the line (`level-layout.md`,
+Level end, gap line and death line).
 
 ## Acceptance test
 
@@ -108,6 +121,8 @@ heart shows empty (`hud.md`). `death_y` is the bottom of the screen
 | Hit with 1 health | Game paused, player hidden and disabled, player death scene added at the player's position with the same `flip_h` |
 | 0.27 s after the killing hit | Death jump starts at -270 px/s, game still paused |
 | During the death jump | Death scene passes through the floor |
-| Player `position.y` reaches `death_y` | Player dies, even while invincible |
-| Player with 2 health reaches `death_y` | Dies; health 0, heart empty |
-| Level with water, player's feet reach y = 234 | Player dies |
+| Player `position.y` reaches 257 | Player dies, even while invincible |
+| Player with 2 health reaches 257 | Dies; health 0, heart empty |
+| Level with water, player's feet reach y = 234 (the water's surface) | Still alive, sinking behind the water |
+| Level with water, player's feet reach y = 257 | Player dies |
+| Death scene's top passes the bottom of the screen | It is switched off and calls `level.on_death()` once |

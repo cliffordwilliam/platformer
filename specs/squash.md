@@ -1,7 +1,7 @@
 # Squash and stretch
 
 Fire-and-forget squash and stretch on the sprites of the player, the
-walkers and the crusher. Read `overview.md` first.
+walkers, the crusher and the checkpoint. Read `overview.md` first.
 
 The flyer, the leaper and the bar never squash or stretch. The diamond and
 the spring do, like a walker, and the spring also bounces when it launches
@@ -102,6 +102,13 @@ comparing `is_on_floor()` with the previous update's value.
 | Lands: was not on the floor last update, is now | `play_bounce()` |
 | Turns around at a wall (`speed = -speed`) | `play_bounce()` |
 | Stomped | The walker flattened scene's sprite plays `play_squish(...)` (see `enemy-walker.md`) |
+| Walker B stomped into a still shell, or kicked | `play_bounce()` on its own sprite (it stays switched on) |
+
+### Checkpoint
+
+| When | Call |
+|---|---|
+| Touched and raised (`checkpoint.md`) | `play_bounce()` |
 
 ### Diamond
 
@@ -137,3 +144,5 @@ never turns, so never bounces at a wall), plus:
 | A second bounce while one is playing | The first stops; the second starts from (1.3, 0.7) |
 | Walker stomped | Flattened sprite reaches (1.5, 0.2) after 0.1 s, (1.2, 0.5) after 0.7 s, then is hidden |
 | Flyer, leaper, bar | Sprite scale is always (1, 1) |
+| Walker B stomped while walking, or a still shell kicked | Its sprite's scale starts at (1.3, 0.7) |
+| Checkpoint touched | Its sprite's scale starts at (1.3, 0.7), around its feet |

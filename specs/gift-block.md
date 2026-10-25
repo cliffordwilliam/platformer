@@ -10,7 +10,7 @@ All 18 × 18:
 
 | Files | What |
 |---|---|
-| `res://art/gift_block_a/`, `res://art/gift_block_b/`, `res://art/gift_block_c/` | Three look-only variants (like the walkers); each has `res://art/gift_block_*/sprite_1.png` (glowing, unused) and `res://art/gift_block_*/sprite_2.png` (dimmed, used) |
+| `res://art/gift_block_a/`, `res://art/gift_block_b/`, `res://art/gift_block_c/` | Three look-only variants; each has `res://art/gift_block_*/sprite_1.png` (glowing, unused) and `res://art/gift_block_*/sprite_2.png` (dimmed, used) |
 | `res://art/coin/sprite_1.png`, `res://art/coin/sprite_2.png` | The coin, two animation frames |
 
 ## The block
@@ -18,8 +18,13 @@ All 18 × 18:
 - A `Block` (`breakable-block.md`, Blocks): `GiftBlock extends Block`, with
   the same box, layers, placement, `bonk()` and `block_at`.
 - Placed from the level script's `blocks` list as a `GiftBlockSpawn`
-  (`level-layout.md`), which gives its cell, its look-only variant (A, B or
-  C) and its contents.
+  (`level-layout.md`), which gives its cell and its contents.
+- **Its look** (A, B or C) is picked per block at build time, each equally
+  likely, like the doors' (`door.md`): the level script never chooses it,
+  since it changes nothing but the picture. Like the decorations, the
+  randomness is not seeded. The block picks it itself in `setup()`, one
+  scene for all three looks, and uses that variant's `sprite_1.png` and
+  `sprite_2.png`.
 - It starts **glowing** (`res://art/gift_block_*/sprite_1.png`) and has a `used` flag, false at the
   start.
 - `contents`: `COIN` or `DIAMOND`, from its `GiftBlockSpawn`. It

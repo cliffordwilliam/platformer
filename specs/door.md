@@ -4,9 +4,8 @@ A door placed anywhere in a level, like a coin. Touching it wins the
 level, exactly like reaching the flag. Read `overview.md`,
 `level-layout.md` and `flag.md` first.
 
-Where a door leads (for example a hidden level) comes with the later spec
-on what follows a win (`flag.md`). For now a door is simply a second way to
-win.
+A door is simply a second way to win: it leads where the flag does, to
+the next level (`game-flow.md`, Winning).
 
 ## Art
 
@@ -30,7 +29,7 @@ win.
   `sprite_2.png`, each equally likely (`randi_range(1, 2)`). Like the
   decorations, the randomness is not seeded.
 - Checked before the build (`level-layout.md`, Checking the layout): its
-  column is inside the level, and it takes **two cells**, its own and the
+  column is between the start and the flag, and it takes **two cells**, its own and the
   one above (where its top reaches), shared with nothing (Occupied cells).
 
 ## Body
@@ -50,8 +49,8 @@ win.
   Checking contact). So a door, like the flag, beats any contact in the
   same update, and loses to the death line.
 - Winning through a door is exactly the same as winning at the flag
-  (`flag.md`, On winning): the game pauses and the player stays visible,
-  frozen where it is.
+  (`flag.md`, On winning): the game pauses, the player stays visible,
+  frozen where it is, and the level closes the iris and moves on.
 - Doors are not part of the jump check (`level-layout.md`): every level
   must still be crossable to the flag. A door is only an extra.
 
@@ -67,6 +66,6 @@ win.
 | Player touches a door and reaches the death line in the same update | Dies, does not win |
 | Player touches a door while touching an enemy | Wins; not hurt |
 | Walker, diamond or spring passes a door | Nothing happens |
-| Door with ground, a block or anything placed in its cell or the cell above | The build stops with an `assert` naming both |
-| Door column -1 or past the last column | The build stops with an `assert` |
+| Door with ground, a block or anything placed in its cell or the cell above | The build stops with an error naming both |
+| Door in the start or flag area, or outside the level | The build stops with an error |
 | A level whose flag can't be reached by jumps, with a door before the gap | The jump check still fails: doors are not part of it |

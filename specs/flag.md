@@ -27,8 +27,9 @@ The flag at the end of every level. Reaching it wins the level. Read
 - The camera stops with its right edge at `level_end_x` (`camera.md`), so
   the flag is always on the level's last screen, with 9 columns after it.
 - The checks before the build (`level-layout.md`, Checking the layout)
-  make sure the level is 1 to 10 screens wide and the player starts left of
-  the flag.
+  make sure the level is 1 to 10 screens wide and nothing is placed in the
+  flag area (the end floor's columns). The player always starts on the
+  start floor, at the other end (`level-layout.md`, Floors).
 - It always stands on ground: its column is the first of the **end floor**,
   10 columns on row 12 that the level root adds after the written floors
   (`level-layout.md`, Floors).
@@ -40,7 +41,7 @@ The flag at the end of every level. Reaching it wins the level. Read
 
 - The level root has a read-only property (a GDScript getter), `win_x`: the
   flag's `position.x`.
-- The **player** checks it, the same way it checks `death_y`: each update,
+- The **player** checks it, the same way it checks the death line: each update,
   right after the death line check and before any contact
   (`player-movement.md`, Each update), once its `position.x` is greater
   than or equal to `level.win_x`, the level is won. Touching a door wins
@@ -56,8 +57,9 @@ The flag at the end of every level. Reaching it wins the level. Read
   hidden.
 - A dead player cannot win: the death line check comes first, and a death
   pauses the game too.
-- What is shown after the win (the win's equivalent of the death jump) and
-  what follows come in a later spec.
+- Right after pausing, the player calls `level.on_win()`. The level
+  closes the iris on the player, then moves on to the next level, or back
+  to the title screen after the last one (`game-flow.md`, Winning).
 
 ## Acceptance test
 
@@ -69,5 +71,6 @@ The flag at the end of every level. Reaching it wins the level. Read
 | Player wins while invincible, on an update its sprite was hidden | Sprite visible, frozen where it is |
 | Player reaches the flag's x and the death line in the same update | Dies, does not win |
 | Player reaches the flag's x while touching an enemy | Wins; not hurt |
-| Written floors 16 columns wide (level 26 columns, `level_end_x` 468) | Flag at x = 288 (column 16, the end floor's first column), y = 0 |
+| Written floors 9 columns wide (level 26 columns, `level_end_x` 468) | Flag at x = 288 (column 16, the end floor's first column), y = 0 |
+| Player wins | `level.on_win()` called once |
 | Any level | Flag's x is `level_end_x - 10 * Grid.TILE` |

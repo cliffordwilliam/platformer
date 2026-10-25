@@ -20,7 +20,9 @@ and `player-damage.md` first. So far that is only the health heart.
   that order. It never plays: its `frame` is set to the level's `health`,
   so frame 0 is empty, 1 is one health, 2 is two.
 - A `CanvasLayer` draws in screen space: the heart stays put while the
-  camera scrolls, and is drawn in front of the whole level.
+  camera scrolls, and is drawn in front of the whole level. It keeps the
+  default `layer` (1); the iris (`game-flow.md`) is on layer 2, so it
+  covers the heart too.
 - Its **top-left corner** is at **(`Screen.width - 26`, 20)**, which is
   (433, 20) on the 459 × 257 screen (`centered = false`, no `offset`):
   the heart is 16 px wide, so its right edge is 10 px from the screen's

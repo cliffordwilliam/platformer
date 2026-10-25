@@ -10,8 +10,8 @@ first.
 - Every spec names an art file by its full `res://` path, exactly as the
   code loads it (for example `res://art/player/sprite_1.png`), never a
   short name.
-- Where a spec covers look-only variants (walkers, gift blocks), `*` in the
-  path stands for the variant letter: `res://art/walker_*/sprite_3.png`
+- Where a spec covers several variants or kinds (walkers, gift blocks),
+  `*` in the path stands for the letter: `res://art/walker_*/sprite_3.png`
   means `walker_a/`, `walker_b/` or `walker_c/`, whichever the node is.
 - All the sprites of one character have the same image size.
 
@@ -39,6 +39,7 @@ origins are measured from the top-left corner of the image, in pixels.
 | `res://art/coin/sprite_*.png`, placed coin (`coins.md`) | 18 × 18 | x 3, y 3 | 12 × 12 | 0, 0 (top-left) |
 | `res://art/coin/sprite_*.png`, popped coin (`gift-block.md`) | 18 × 18 | none | none | 0, 0 (top-left) |
 | `res://art/flag/sprite_*.png` | 18 × 257 | none | none | 0, 0 (top-left) |
+| `res://art/flag/sprite_*.png`, checkpoint (`checkpoint.md`): an 18 × 36 region of it | 18 × 36 (the region) | x 0, y 0 | 18 × 36 | 9, 36 (feet) |
 | `res://art/heart/sprite_*.png` | 16 × 14 | none | none | 0, 0 (top-left) |
 | `res://art/backgrounds/sprite_*.png` | 96 × 257 | none | none | 0, 0 (top-left) |
 | `res://art/door/sprite_*.png` | 18 × 36 | x 0, y 13 | 18 × 23 | 0, 18 (top-left of the bottom tile) |
@@ -69,8 +70,8 @@ places them and gives the solids and platforms their collision (`level-tiles.md`
 - `VisibleOnScreenEnabler2D` areas are not these boxes: they are the whole
   sprite, or the whole path, as each enemy's spec says.
 - Walker `res://art/walker_*/sprite_3.png` is the flattened sprite, used
-  only by the walker flattened and bonked scenes, which have no collision
-  box.
+  by the walker flattened and bonked scenes, which have no collision box,
+  and by walker B's shell, which keeps walker B's box (`enemy-walker.md`).
 
 ## Origins
 
@@ -78,7 +79,8 @@ The origin is the point that `position` refers to, and the point a sprite
 scales and spins around. Each thing's origin is chosen for what it does:
 
 - **Feet:** the middle of the bottom edge of the box, rounded down to a
-  whole pixel. For things that stand and walk on the floor: squash and
+  whole pixel. For things that stand and walk on the floor, and the
+  checkpoint, which stands on the ground and bounces: squash and
   stretch scale around the origin, so the feet stay on the floor, and
   placing it in a cell (`level-layout.md`) stands it on that cell's floor.
 - **Centre:** the centre of the image, rounded down to a whole pixel. For

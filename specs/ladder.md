@@ -23,7 +23,7 @@ Coordinates are (column, row):
 - Anywhere, like a door: on the ground, floating, from a floor up to a
   ledge. Nothing has to be under it.
 - Checked before the build (`level-layout.md`, Checking the layout):
-  `height` is 1 or more, its column is inside the level, and every cell it
+  `height` is 1 or more, its column is between the start and the flag, and every cell it
   covers is shared with nothing (Occupied cells).
 
 ## Drawing
@@ -106,6 +106,6 @@ check). Every level must still be crossable by jumping alone.
 | Player jumps up through a ladder's top | Passes through |
 | Walker reaches a ladder | Passes through its body; lands on its cap if it falls onto it |
 | Enemy touches a climbing player | Player is hurt (Climb is not Fall, so no stomp) |
-| Ladder `height` 0, or a cell in column -1 or past the last column | The build stops with an `assert` |
-| Ladder cell on ground, a block, a platform or anything placed | The build stops with an `assert` naming both |
+| Ladder `height` 0, or a cell in the start or flag area, or outside the level | The build stops with an error |
+| Ladder cell on ground, a block, a platform or anything placed | The build stops with an error naming both |
 | A level only crossable with a ladder | The jump check fails: ladders are not part of it |

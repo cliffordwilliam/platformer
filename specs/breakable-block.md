@@ -104,22 +104,27 @@ timing to get right.
   block's cell, the walker dies by bonk (see Walker bonk death).
 - A walker dies if any part of its box is over the block, even if it also
   stands on the next tile.
-- Only walkers die this way.
+- Only walkers die this way: all three kinds, and walker B in any state,
+  shell or not (`enemy-walker.md`).
 
 ## Walker bonk death
 
+A walker also dies this way when a kicked shell runs into it
+(`enemy-walker.md`, Walker B: the shell).
+
 1. The walker switches itself off and hides, like a stomped walker.
 2. It adds a **walker bonked** scene to the level (`level.add_effect()`),
-   at the same position, passing in `setup()` its variant's flattened
-   sprite, its `flip_h` and the way it was walking:
+   at the same position, passing in `setup()` its kind's flattened
+   sprite and its `flip_h`:
    - starting speed: 227.37 px/s up (the player's stomp bounce speed), and
      33.75 px/s sideways in the **opposite** direction to the way the walker
-     was walking
+     faces (`flip_h`). So a still shell, which has no speed, flies off
+     too, and a kicked shell flies off at 33.75, not 202.5.
    - each update, the same as the player's stomp bounce
      (`player-movement.md`): heavy gravity **1923.75** px/s² added first,
      falling speed capped at **270** px/s, then it moves by changing
      `position`
-   - always shows the variant's `res://art/walker_*/sprite_3.png`, **upside
+   - always shows the kind's `res://art/walker_*/sprite_3.png`, **upside
      down** (`flip_v = true`), with the walker's `flip_h`
    - no collision: it falls through everything
    - switched off once below the screen (see Switching off)
@@ -172,7 +177,8 @@ its centre (9, 9) (`assets.md`).
 | Chunks | Two of each variant, in random corners, centres at the block's centre ± 4; top ones 405 up, bottom ones 270 up, 67.5 sideways outward |
 | A chunk, every 4 updates | Steps normal, `flip_h`, `flip_v`, both |
 | A chunk that flew above the screen | Comes back down and switches off below the screen |
-| Walker standing on the block when it breaks | Walker bonked: shows its variant's `sprite_3.png` upside down, bounces at 227.37 up, moving the other way, gravity 1923.75, falling capped at 270 |
+| Walker standing on the block when it breaks | Walker bonked: shows its kind's `sprite_3.png` upside down, bounces at 227.37 up, moving the other way to its facing, gravity 1923.75, falling capped at 270 |
+| Still shell or walker C standing on the block when it breaks | Bonked the same way |
 | Walker B (24 px) with only its middle over the block | Dies |
 | Walker with part of its box over the block, the rest over the next tile | Dies |
 | Walker entirely over the next tile | Survives |

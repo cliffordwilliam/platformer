@@ -11,7 +11,9 @@ This file holds the rules every spec shares. Read it first.
 | `assets.md` | Art files, collision boxes and origins |
 | `level-tiles.md` | Solid ground tiles, autotiling and their collision |
 | `level-layout.md` | Level scripts, floors, placing things, water, spikes, decorations, level end, the jump check and the snapshot |
+| `game-flow.md` | The title screen, the levels in a line, the iris, and what follows a win or a death |
 | `flag.md` | The goal flag and winning a level |
+| `checkpoint.md` | Checkpoint flags: touching one moves where the player respawns |
 | `door.md` | Doors placed anywhere, like coins; touching one wins the level like the flag |
 | `background.md` | The still picture behind everything, one per biome, repeated sideways and scrolling at half speed |
 | `trees.md` | Randomly built background trees in grass levels |
@@ -31,7 +33,7 @@ This file holds the rules every spec shares. Read it first.
 | `player-damage.md` | Health, injury freeze and invincibility, death |
 | `player-contact.md` | Everything the player touches, in one fixed order: blocks over its head, pickups, enemies (stomp or hurt), springs |
 | `camera.md` | Right-only camera, level end, keeping the player on screen |
-| `enemy-walker.md` | Enemies that walk back and forth, turn at walls and fall off ledges |
+| `enemy-walker.md` | Enemies that walk back and forth, turn at walls and fall off ledges: plain, shell and spiked |
 | `enemy-flyer.md` | Enemies that bob up and down in the air |
 | `enemy-leaper.md` | Enemies that leap straight up and fall back, again and again |
 | `enemy-crusher.md` | An enemy that drops on the player and rises back; cannot be stomped |
@@ -54,10 +56,13 @@ This file holds the rules every spec shares. Read it first.
   - Errors never stop a run or change its exit code, which is always 0: a
     script that fails to parse just doesn't load, and a failed `assert`
     stops only the function it is in. After every run, read the output for
-    `SCRIPT ERROR` and `ERROR` lines.
+    `SCRIPT ERROR` and `ERROR` lines. The one exception is the level's own
+    checks, which quit with code 1 (`level-layout.md`, Checking the
+    layout).
   - Because an `assert` stops only its own function, a check that must
-    stop its caller is not an `assert` inside a helper: the helper returns
-    a message (`""` when all is well) and the caller asserts on it
+    stop its caller is not an `assert` inside a helper: the helper appends
+    its messages to a list of errors, and the caller looks at the list,
+    prints every message with `push_error()` and stops
     (`level-layout.md`, Checking the layout).
   - A type inferred from a Variant is an **error**, not a warning, by
     default: `var plank := [1, 2].pick_random()` stops the script from
@@ -112,6 +117,12 @@ Godot's own updates, not against copies of the code.
   has no exact binary form never equals the written number: a
   `velocity.y` set to `-227.37` reads back as `-227.3699951` (tested). In
   the specs' tables, `==` with a decimal number means within 0.001.
+- A test level is a child of the runner, not the scene being played, so
+  it has no iris, does not pause itself at the start, and a win or death
+  only pauses the game, as before (`game-flow.md`, `is_main`). Each test
+  sets `Level.respawn_cell` back to `Level.PLAYER_CELL` first: it is a
+  `static var` and would carry a checkpoint over from the previous test
+  (`checkpoint.md`).
 - **Two traps (tested on 4.7.2):**
   - The runner keeps going while the game is paused
     (`PROCESS_MODE_ALWAYS`), and a level added under it would inherit
@@ -204,8 +215,9 @@ Godot's own updates, not against copies of the code.
   script, built when the game runs, and checked with a snapshot
   (`level-layout.md`).
 - There is no pause button or pause screen. The game only pauses itself:
-  for the injury freeze and death (`player-damage.md`) and on winning
-  (`flag.md`).
+  for the injury freeze and death (`player-damage.md`), on winning
+  (`flag.md`), and while the iris opens at a level's start
+  (`game-flow.md`).
 - **Physics layers** (named in Project Settings > Layer Names > 2D Physics):
 
   | Layer | Name | On it |
@@ -216,6 +228,7 @@ Godot's own updates, not against copies of the code.
   | 4 | `pickups` | Coins and the diamond's pickup area |
   | 5 | `springs` | Springs |
   | 6 | `doors` | Doors |
+  | 7 | `checkpoints` | Checkpoints |
 
   The player is on **no** layer. It is the only thing that looks for the
   others (its contact check, `player-contact.md`); nothing ever looks for
@@ -224,8 +237,9 @@ Godot's own updates, not against copies of the code.
   | Node | `collision_layer` | `collision_mask` |
   |---|---|---|
   | Player body | none | `level` |
-  | Player contact `Area2D` | none | `walkers`, `enemies`, `pickups`, `springs`, `doors` |
-  | Walker | `walkers` | `level`, `walkers` |
+  | Player contact `Area2D` | none | `walkers`, `enemies`, `pickups`, `springs`, `doors`, `checkpoints` |
+  | Walker (all three kinds) | `walkers` | `level`, `walkers` |
+  | Kicked shell (walker B, `enemy-walker.md`) | `walkers` | `level` |
   | Crusher | `enemies` | `level` |
   | Flyer, leaper, bar (`Area2D`) | `enemies` | none |
   | Breakable and gift blocks (`StaticBody2D`) | `level` | none |
@@ -237,6 +251,7 @@ Godot's own updates, not against copies of the code.
   | Diamond pickup (`Area2D`) | `pickups` | none |
   | Springs (`CharacterBody2D`) | `springs` | `level`, `springs` |
   | Doors (`Area2D`) | `doors` | none |
+  | Checkpoints (`Area2D`) | `checkpoints` | none |
   | Death and flattened scenes | none | none |
 
   Every collision object sets **both** `collision_layer` and
